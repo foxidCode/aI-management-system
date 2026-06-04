@@ -1,4 +1,4 @@
-# 权限管理系统 (Permission Management System)
+# 管理系统 (Management System)
 
 基于 **ASP.NET Core 10** + **Vue 3** + **Element Plus** 的企业级全栈管理系统。涵盖 RBAC 权限控制、流程审批、入库单管理、低代码集成平台、OAuth 2.0/OIDC 单点登录、计划任务调度、外部数据库管理等完整功能。
 
