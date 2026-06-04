@@ -7,7 +7,7 @@
 - **ORM**：Entity Framework Core 10
 - **模式**：WAL（Write-Ahead Logging），读并发、写串行
 
-## 核心表（28+ 张）
+## 核心表（25+ 张）
 
 ### 用户与权限
 
@@ -31,14 +31,6 @@
 | MaterialDictionaries | 材料字典（编码、名称、规格、型号、单位、备注） |
 | Attachments | 统一附件（模块名、关联ID、关联名称、文件名、MinIO Key、大小、类型、上传者） |
 
-### 流程审批
-
-| 表 | 说明 |
-|------|------|
-| WorkflowDefinitions | 流程定义（名称、分类、版本、状态、节点数据 JSON） |
-| WorkflowInstances | 流程实例（定义关联、模块、实体ID、当前节点、状态、发起人、节点快照） |
-| WorkflowTasks | 审批任务（实例关联、节点ID/名称、类型、审批人、状态、意见、已读标记） |
-
 ### OAuth / SSO
 
 | 表 | 说明 |
@@ -58,7 +50,7 @@
 | ScheduledTasks | 计划任务（名称、Cron、集成任务关联、代码处理器、处理器类、参数、启用） |
 | DbConnectionConfigs | 外部数据库配置（名称、类型、主机、端口、库名、用户名、AES 加密密码） |
 
-## 权限码（22 项）
+## 权限码（19 项）
 
 ```
 user:view, user:create, user:edit, user:delete, user:freeze,
@@ -66,8 +58,7 @@ user:reset_password, role:manage, role:assign_permission,
 system:config, material:view, material:manage,
 inbound:view, inbound:manage, sso:manage, oauth:manage,
 home:config, attachment:manage, database:manage,
-integration:manage, workflow:manage, workflow:approve,
-workflow:monitor
+integration:manage
 ```
 
 ## 种子数据

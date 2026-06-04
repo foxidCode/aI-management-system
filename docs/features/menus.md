@@ -69,14 +69,6 @@
   ├── 计划任务 → /dashboard/schedule
   └── 系统配置 → (系统设置)
 
-🔄 流程中心
-  ├── 流程设计 → /dashboard/workflows/design
-  ├── 流程管理 → /dashboard/workflows
-  ├── 待办任务 → /dashboard/workflows/todo
-  ├── 已办任务 → /dashboard/workflows/done
-  ├── 流程监控 → /dashboard/workflows/monitor
-  └── 流程统计 → /dashboard/workflows/stats
-
 📚 接口文档 → /swagger (外部链接)
 ❓ 帮助中心 → http://localhost:5174 (外部链接)
 ```

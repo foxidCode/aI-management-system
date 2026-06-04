@@ -28,9 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<OAuthClient> OAuthClients => Set<OAuthClient>();
     public DbSet<AuthorizationCode> AuthorizationCodes => Set<AuthorizationCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
-    public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
-    public DbSet<WorkflowTask> WorkflowTasks => Set<WorkflowTask>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -165,22 +163,7 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.ClientId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // WorkflowDefinition: 同 Name+Category 查最新版本
-        modelBuilder.Entity<WorkflowDefinition>()
-            .HasIndex(w => new { w.Name, w.Category, w.Version });
 
-        // WorkflowInstance: 按 Module+RelatedId 查关联
-        modelBuilder.Entity<WorkflowInstance>()
-            .HasIndex(w => new { w.ModuleName, w.RelatedId });
 
-        modelBuilder.Entity<WorkflowInstance>()
-            .HasIndex(w => w.Status);
-
-        // WorkflowTask: 按审批人+状态查待办
-        modelBuilder.Entity<WorkflowTask>()
-            .HasIndex(t => new { t.AssigneeId, t.Status });
-
-        modelBuilder.Entity<WorkflowTask>()
-            .HasIndex(t => t.InstanceId);
     }
 }

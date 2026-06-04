@@ -202,7 +202,3 @@ public class AttachmentModuleOption
     public string DisplayName { get; set; } = string.Empty;
 }
 
-public class SubmitApprovalRequest
-{
-    public int DefinitionId { get; set; }
-}

@@ -1,6 +1,6 @@
 # 管理系统 (Management System)
 
-基于 **ASP.NET Core 10** + **Vue 3** + **Element Plus** 的企业级全栈管理系统。涵盖 RBAC 权限控制、流程审批、入库单管理、低代码集成平台、OAuth 2.0/OIDC 单点登录、计划任务调度、外部数据库管理等完整功能。
+基于 **ASP.NET Core 10** + **Vue 3** + **Element Plus** 的企业级全栈管理系统。涵盖 RBAC 权限控制、入库单管理、低代码集成平台、OAuth 2.0/OIDC 单点登录、计划任务调度、外部数据库管理等完整功能。
 
 ## 技术栈
 
@@ -12,11 +12,9 @@
 | 缓存与会话 | Redis (StackExchange.Redis) | Token 缓存 / 在线状态 / SSO |
 | 对象存储 | MinIO (Minio SDK) | 附件上传 / 下载 |
 | 邮件 | MailKit (SMTP) | 密码重置验证码 |
-| 流程引擎 | 自研 LogicFlow 状态机 | 可视化建模 + 审批流转 |
 | 脚本引擎 | Microsoft.CodeAnalysis.CSharp.Scripting | 集成平台 / 计划任务 |
 | 前端框架 | Vue 3 (Composition API) | ^3.5 |
 | UI 组件 | Element Plus | ^2.14 |
-| 流程图 | LogicFlow | ^2.2 |
 | 图表 | ECharts (vue-echarts) | ^6 |
 | 构建工具 | Vite | ^8.0 |
 | 文档 | VitePress | ^1.6 |
@@ -30,7 +28,7 @@
 ```
 demo/
 ├── backend/                         # ASP.NET Core 后端
-│   ├── Controllers/                 # 19 个 API 控制器
+│   ├── Controllers/                 # 16 个 API 控制器
 │   │   ├── AuthController.cs            # 登录 / 注册 / 密码重置
 │   │   ├── UserController.cs            # 用户信息 / 主页配置 / 在线用户
 │   │   ├── UserManagementController.cs  # 用户 CRUD / 冻结 / 批量操作 / 角色分配
@@ -38,21 +36,18 @@ demo/
 │   │   ├── MenuController.cs            # 动态菜单（按权限过滤）
 │   │   ├── PermissionController.cs      # 权限列表 / 权限树
 │   │   ├── MaterialController.cs        # 材料字典 CRUD
-│   │   ├── InboundOrderController.cs    # 入库单 CRUD / 明细 / 附件 / 导出 / 提交审批
+│   │   ├── InboundOrderController.cs    # 入库单 CRUD / 明细 / 附件 / 导出
 │   │   ├── AttachmentController.cs      # 统一附件管理（MinIO）
 │   │   ├── DatabaseController.cs        # 外部数据库连接 / 表结构 / SQL 执行
 │   │   ├── IntegrationController.cs     # 集成平台（连接 / 任务 / 日志）
 │   │   ├── ScheduleController.cs        # 计划任务调度（Cron / 一次性）
-│   │   ├── WorkflowController.cs        # 流程定义 CRUD / 发布 / 版本管理
-│   │   ├── WorkflowInstanceController.cs # 流程实例 / 发起 / 审批 / 召回
-│   │   ├── WorkflowTaskController.cs    # 待办 / 已办 / 我的申请
 │   │   ├── OAuthController.cs           # OAuth 2.0 授权 / Token / 用户信息
 │   │   ├── OAuthClientController.cs     # OAuth 客户端管理
 │   │   ├── SsoController.cs             # SSO 魔法链接 / 授权码登录
 │   │   └── WeatherController.cs         # 天气查询（IP 定位 + wttr.in）
-│   ├── Models/                      # 28+ 实体模型
-│   ├── DTOs/                        # 11 组数据传输对象
-│   ├── Services/                    # 17 个业务服务
+│   ├── Models/                      # 25+ 实体模型
+│   ├── DTOs/                        # 10 组数据传输对象
+│   ├── Services/                    # 14 个业务服务
 │   │   ├── AuthService.cs              # JWT 签发 / BCrypt / Redis 缓存 / 在线追踪
 │   │   ├── PermissionService.cs        # RBAC 权限 + 角色 + 菜单
 │   │   ├── EmailService.cs             # SMTP 邮件发送
@@ -62,9 +57,6 @@ demo/
 │   │   ├── DatabaseService.cs          # 多数据库连接 / SQL 安全执行
 │   │   ├── IntegrationService.cs       # 低代码集成引擎
 │   │   ├── ScheduleService.cs          # Cron 调度器（BackgroundService）
-│   │   ├── WorkflowEngine.cs           # 流程状态机
-│   │   ├── WorkflowService.cs          # 流程业务管理
-│   │   ├── WorkflowTimeoutService.cs   # 审批超时处理（BackgroundService）
 │   │   ├── OAuthService.cs             # OAuth 2.0 授权码流程 + PKCE
 │   │   ├── OidcService.cs              # OpenID Connect
 │   │   ├── RsaKeyProvider.cs           # RSA 2048 密钥对管理 + JWKS
@@ -87,10 +79,8 @@ demo/
 │       │   ├── InboundChartCard.vue         # 入库图表卡片
 │       │   ├── StatsCard.vue                # 在线用户统计卡片
 │       │   ├── ClockCard.vue                # 实时时钟卡片
-│       │   ├── TodoCard.vue                 # 待办任务卡片
-│       │   ├── DoneCard.vue                 # 已办任务卡片
 │       │   └── KeyValueEditor.vue           # 键值对编辑器
-│       └── views/                       # 24 个页面组件
+│       └── views/                       # 18 个页面组件
 │           ├── Login.vue / Register.vue     # 登录 / 注册
 │           ├── Dashboard.vue                # 主布局（动态菜单 + 搜索）
 │           ├── HomePage.vue                 # 可配置卡片仪表盘
@@ -108,16 +98,10 @@ demo/
 │           ├── DatabaseManagement.vue       # 外部数据库管理
 │           ├── IntegrationManagement.vue    # 集成平台
 │           ├── ScheduleManagement.vue       # 计划任务管理
-│           ├── WorkflowDesigner.vue         # 流程设计器（LogicFlow）
-│           ├── WorkflowManagement.vue       # 流程定义管理
-│           ├── WorkflowMonitor.vue          # 流程监控
-│           ├── WorkflowTodo.vue             # 待办中心
-│           ├── WorkflowDone.vue             # 已办任务
-│           └── WorkflowStats.vue            # 流程统计
 ├── docs/                            # VitePress 文档站点
 │   ├── index.md                         # 文档首页
 │   ├── guide/                           # 指南（部署 / 架构 / 数据库 / 性能）
-│   └── features/                        # 功能文档（9 篇）
+│   └── features/                        # 功能文档（8 篇）
 ├── MockThirdPartyApi/               # 第三方 API 模拟（ERP 系统）
 │   └── Program.cs                       # 物料查询 / 采购单同步 / 登录认证
 ├── SsoTestClient/                   # OAuth 2.0 + OIDC 测试客户端
@@ -138,7 +122,7 @@ demo/
 |------|------|
 | 🔐 **用户认证** | JWT + BCrypt 登录/注册，Redis Token 缓存与吊销，Cookie IdP 会话 |
 | 👥 **用户管理** | 分页/搜索/排序，CRUD，冻结/解冻，批量操作，在线状态追踪，角色分配 |
-| 🎯 **RBAC 权限** | 用户 → 角色 → 权限三层模型，22 项细粒度权限码，树形权限勾选 |
+| 🎯 **RBAC 权限** | 用户 → 角色 → 权限三层模型，19 项细粒度权限码，树形权限勾选 |
 | 📋 **动态菜单** | 数据库驱动菜单树，按权限自动过滤，顶栏搜索（键盘导航），外部链接支持 |
 | 🔑 **密码重置** | 邮箱验证码（6位），SMTP/MailKit，5分钟有效期 |
 
@@ -154,13 +138,12 @@ demo/
 
 | 模块 | 说明 |
 |------|------|
-| 🔄 **流程审批** | LogicFlow 可视化拖拽建模，5 种节点（开始/审批/抄送/条件/结束），任签/会签策略，版本管理（草稿/发布/归档），超时自动通过/驳回，实例快照 |
 | ⚙️ **集成平台** | 低代码数据同步，5 种认证方式（None/Basic/Bearer/ApiKey/Chain），Pull→Transform→Push 流水线，字段映射，C# 脚本处理器，执行日志 |
 | ⏰ **计划任务** | Cron 定时调度（10 秒轮询），一次性任务，4 个内置处理器，C# 脚本/反射处理器，手动触发 |
 | 🗄️ **数据库管理** | 5 种外部数据库（MySQL/SQL Server/SQLite/Oracle/PostgreSQL），AES 密码加密，表结构浏览，只读 SQL 执行 |
 | 🔗 **SSO 单点登录** | 魔法链接（64位随机令牌），8位授权码，Redis 缓存验证 |
 | 🔒 **OAuth 2.0 / OIDC** | 授权码流程 + PKCE S256，RS256 签名 id_token，Refresh Token 轮转，OIDC Discovery，JWKS 端点，多客户端管理 |
-| 🏠 **主页仪表盘** | 可配置卡片网格，6 种卡片（天气/图表/统计/时钟/待办/已办），拖拽布局，用户级持久化 |
+| 🏠 **主页仪表盘** | 可配置卡片网格，4 种卡片（天气/图表/统计/时钟），拖拽布局，用户级持久化 |
 | 🌤️ **天气组件** | IP 自动定位（3 服务回退），wttr.in 天气数据，温湿度/风速/体感温度 |
 
 ---
@@ -173,7 +156,7 @@ demo/
 
 | 角色 | 权限数 | 说明 |
 |------|--------|------|
-| **超级管理员** | 22 项全部 | 可管理所有资源、分配角色 |
+| **超级管理员** | 19 项全部 | 可管理所有资源、分配角色 |
 | 普通用户 | 2 项 | `user:view` + `system:config` |
 | 只读用户 | 1 项 | 仅 `user:view` |
 
@@ -185,8 +168,7 @@ role:manage, role:assign_permission, system:config,
 material:view, material:manage,
 inbound:view, inbound:manage,
 sso:manage, oauth:manage, home:config, attachment:manage,
-database:manage, integration:manage,
-workflow:manage, workflow:approve, workflow:monitor
+database:manage, integration:manage
 ```
 
 ### 内置菜单
@@ -195,7 +177,6 @@ workflow:manage, workflow:approve, workflow:monitor
 |----------|--------|
 | 主页 | 仪表盘、个人信息 |
 | 系统管理 | 用户列表、角色管理、材料字典、入库单、SSO 管理、OAuth 客户端、主页配置、附件管理、数据库管理、集成平台、计划任务、系统配置 |
-| 流程中心 | 流程设计、流程管理、待办任务、已办任务、流程监控、流程统计 |
 | 接口文档 | Swagger API 文档 |
 | 帮助中心 | VitePress 文档站点 |
 

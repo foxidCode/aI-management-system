@@ -21,9 +21,6 @@
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.200" />
     <PackageReference Include="StackExchange.Redis" Version="2.13.17" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.1" />
-    <PackageReference Include="WorkflowCore" Version="3.18.0" />
-    <PackageReference Include="WorkflowCore.DSL" Version="3.18.0" />
-    <PackageReference Include="WorkflowCore.Persistence.EntityFramework" Version="3.18.0" />
   </ItemGroup>
 
 </Project>

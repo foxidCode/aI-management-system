@@ -131,20 +131,6 @@ const DEFAULT_CARDS = [
     enabled: false,
     col: 2, row: 2, colSpan: 1, rowSpan: 1,
   },
-  {
-    type: 'todo',
-    name: '我的待办',
-    description: '待审批任务列表，点击跳转审批',
-    enabled: false,
-    col: 1, row: 3, colSpan: 1, rowSpan: 1,
-  },
-  {
-    type: 'done',
-    name: '我的已办',
-    description: '已审批记录，点击查看详情',
-    enabled: false,
-    col: 2, row: 3, colSpan: 1, rowSpan: 1,
-  },
 ]
 
 // ========== 状态 ==========

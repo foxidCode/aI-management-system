@@ -20,7 +20,7 @@
 
 | 角色 | 权限数 | 说明 |
 |------|--------|------|
-| 超级管理员 | 全部 22 | 可管理所有资源、分配角色 |
+| 超级管理员 | 全部 19 | 可管理所有资源、分配角色 |
 | 普通用户 | 2 | `user:view` + `system:config` |
 | 只读用户 | 1 | 仅 `user:view` |
 
@@ -40,7 +40,6 @@
 | 附件 | `attachment:manage` | 统一附件管理 |
 | 数据库 | `database:manage` | 外部数据库管理 |
 | 集成 | `integration:manage` | 集成平台 |
-| 流程 | `workflow:manage`, `workflow:approve`, `workflow:monitor` | 流程审批 |
 
 ## 权限验证
 
@@ -87,8 +86,4 @@ if (!User.Claims.Any(c => c.Type == "permission" && c.Value == "role:manage"))
   ├── 入库单   → inbound:view, inbound:manage
   ├── SSO 管理 → sso:manage
   └── ...
-流程中心
-  ├── 流程设计 → workflow:manage
-  ├── 待办任务 → workflow:approve
-  └── 流程监控 → workflow:monitor
 ```

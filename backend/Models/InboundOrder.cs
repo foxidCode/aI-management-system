@@ -48,13 +48,6 @@ public class InboundOrder
     /// <summary>软删除</summary>
     public bool IsDeleted { get; set; } = false;
 
-    /// <summary>流程状态：draft（草稿）/ pending_approval（审批中）/ approved（已通过）/ rejected（已驳回）</summary>
-    [MaxLength(20)]
-    public string Status { get; set; } = "draft";
-
-    /// <summary>关联的流程实例 ID</summary>
-    public int? WorkflowInstanceId { get; set; }
-
     public ICollection<InboundOrderDetail> Details { get; set; } = new List<InboundOrderDetail>();
 }
 

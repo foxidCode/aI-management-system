@@ -95,10 +95,7 @@ builder.Services.AddScoped<InboundOrderService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddScoped<IntegrationService>();
-builder.Services.AddScoped<WorkflowEngine>();
-builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddHostedService<ScheduleService>();
-builder.Services.AddHostedService<WorkflowTimeoutService>();
 builder.Services.AddScoped<SsoService>();
 builder.Services.AddScoped<OAuthService>();
 builder.Services.AddScoped<OidcService>();
@@ -394,59 +391,6 @@ using (var scope = app.Services.CreateScope())
     try { db.Database.ExecuteSqlRaw(@"ALTER TABLE ScheduledTasks ADD COLUMN CodeHandler TEXT"); } catch { }
     try { db.Database.ExecuteSqlRaw(@"ALTER TABLE ScheduledTasks ADD COLUMN HandlerClass TEXT"); } catch { }
     try { db.Database.ExecuteSqlRaw(@"ALTER TABLE ScheduledTasks ADD COLUMN HandlerParameters TEXT"); } catch { }
-
-    // 流程审批表
-    db.Database.ExecuteSqlRaw(@"
-        CREATE TABLE IF NOT EXISTS WorkflowDefinitions (
-            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            Name TEXT NOT NULL,
-            Category TEXT NOT NULL DEFAULT '',
-            Version INTEGER NOT NULL DEFAULT 1,
-            Status TEXT NOT NULL DEFAULT 'draft',
-            NodeData TEXT NOT NULL DEFAULT '{{""nodes"":[],""edges"":[]}}',
-            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-        CREATE INDEX IF NOT EXISTS IX_WorkflowDefinitions_NameCatVer ON WorkflowDefinitions(Name, Category, Version);
-
-        CREATE TABLE IF NOT EXISTS WorkflowInstances (
-            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            DefinitionId INTEGER NOT NULL,
-            DefinitionVersion INTEGER NOT NULL DEFAULT 1,
-            ModuleName TEXT NOT NULL DEFAULT '',
-            RelatedId TEXT NOT NULL DEFAULT '',
-            CurrentNodeIds TEXT NOT NULL DEFAULT '[]',
-            Status TEXT NOT NULL DEFAULT 'running',
-            StartedBy INTEGER NOT NULL DEFAULT 0,
-            StartedAt TEXT NOT NULL DEFAULT (datetime('now')),
-            CompletedAt TEXT,
-            NodeData TEXT NOT NULL DEFAULT '{{""nodes"":[],""edges"":[]}}',
-            FOREIGN KEY (DefinitionId) REFERENCES WorkflowDefinitions(Id) ON DELETE RESTRICT
-        );
-        CREATE INDEX IF NOT EXISTS IX_WorkflowInstances_ModuleRel ON WorkflowInstances(ModuleName, RelatedId);
-        CREATE INDEX IF NOT EXISTS IX_WorkflowInstances_Status ON WorkflowInstances(Status);
-
-        CREATE TABLE IF NOT EXISTS WorkflowTasks (
-            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            InstanceId INTEGER NOT NULL,
-            NodeId TEXT NOT NULL DEFAULT '',
-            NodeName TEXT NOT NULL DEFAULT '',
-            TaskType TEXT NOT NULL DEFAULT 'approval',
-            AssigneeId INTEGER NOT NULL DEFAULT 0,
-            Status TEXT NOT NULL DEFAULT 'pending',
-            Comment TEXT,
-            IsRead INTEGER NOT NULL DEFAULT 0,
-            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
-            CompletedAt TEXT,
-            FOREIGN KEY (InstanceId) REFERENCES WorkflowInstances(Id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS IX_WorkflowTasks_AssigneeStatus ON WorkflowTasks(AssigneeId, Status);
-        CREATE INDEX IF NOT EXISTS IX_WorkflowTasks_InstanceId ON WorkflowTasks(InstanceId);
-    ");
-
-    // InboundOrder 增量迁移：新增流程状态 + 流程实例关联
-    try { db.Database.ExecuteSqlRaw(@"ALTER TABLE InboundOrders ADD COLUMN Status TEXT NOT NULL DEFAULT 'draft'"); } catch { }
-    try { db.Database.ExecuteSqlRaw(@"ALTER TABLE InboundOrders ADD COLUMN WorkflowInstanceId INTEGER"); } catch { }
 
     // 数据库连接配置表
     db.Database.ExecuteSqlRaw(@"

@@ -36,12 +36,6 @@ const routes = [
       { path: 'database', component: () => import('../views/DatabaseManagement.vue') },
       { path: 'integration', component: () => import('../views/IntegrationManagement.vue') },
       { path: 'schedule', component: () => import('../views/ScheduleManagement.vue') },
-      { path: 'workflows', component: () => import('../views/WorkflowManagement.vue') },
-      { path: 'workflows/design/:id?', component: () => import('../views/WorkflowDesigner.vue') },
-      { path: 'workflows/todo', component: () => import('../views/WorkflowTodo.vue') },
-      { path: 'workflows/done', component: () => import('../views/WorkflowDone.vue') },
-      { path: 'workflows/monitor', component: () => import('../views/WorkflowMonitor.vue') },
-      { path: 'workflows/stats', component: () => import('../views/WorkflowStats.vue') },
     ]
   },
 ]

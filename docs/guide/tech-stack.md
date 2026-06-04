@@ -12,7 +12,6 @@
 | 对象存储 | MinIO SDK | S3 兼容对象存储，附件管理 |
 | 邮件 | MailKit | SMTP 邮件发送（密码重置验证码） |
 | 脚本引擎 | Microsoft.CodeAnalysis.CSharp.Scripting | 运行时 C# 代码编译（集成平台 + 计划任务） |
-| 流程引擎 | 自研 LogicFlow 状态机 | 可视化流程定义驱动，审批任务管理 |
 | 文档 | Swagger / Swashbuckle | OpenAPI 接口文档 + JWT Bearer 认证 |
 | 数据库驱动 | SQL Server / MySQL / PostgreSQL / Oracle | 外部数据库连接与管理 |
 
@@ -22,7 +21,6 @@
 |------|------|------|
 | 框架 | Vue 3 | Composition API (`<script setup>`) |
 | UI 库 | Element Plus | 企业级 UI 组件 |
-| 流程图 | LogicFlow | 流程设计器（拖拽节点 + 连线） |
 | 图表 | ECharts / vue-echarts | 入库金额趋势图 |
 | 构建 | Vite 8 | 开发服务器 + 生产构建 |
 | HTTP | Axios | 请求/响应拦截，自动 Token 附加 |

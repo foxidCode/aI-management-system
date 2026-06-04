@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "权限管理系统"
   text: "企业级全栈管理平台"
-  tagline: 基于 ASP.NET Core 10 + Vue 3 + Element Plus，涵盖 RBAC 权限控制、流程审批、低代码集成、OAuth 2.0/OIDC 单点登录
+  tagline: 基于 ASP.NET Core 10 + Vue 3 + Element Plus，涵盖 RBAC 权限控制、低代码集成、OAuth 2.0/OIDC 单点登录
   actions:
     - theme: brand
       text: 快速开始
@@ -17,9 +17,6 @@ features:
   - icon: 🔐
     title: 认证与授权
     details: JWT + BCrypt 安全认证，RBAC 用户→角色→权限三层模型，22 项细粒度权限码，动态菜单按权限过滤
-  - icon: 📋
-    title: 流程审批
-    details: LogicFlow 可视化拖拽建模，5 种节点类型（开始/审批/抄送/条件/结束），任签/会签策略，版本管理，超时自动处理
   - icon: 📦
     title: 入库单管理
     details: 完整采购入库流程，自动编码与金额计算，材料明细管理，附件上传（MinIO），CSV 导出，日统计
@@ -37,7 +34,7 @@ features:
     details: OAuth 2.0 授权码流程 + PKCE S256，OpenID Connect，RS256 签名 id_token，JWKS 端点，多客户端管理
   - icon: 🏠
     title: 可配置仪表盘
-    details: 6 种功能卡片（天气/图表/统计/时钟/待办/已办），拖拽布局，用户级配置持久化，IP 自动天气定位
+    details: 4 种功能卡片（天气/图表/统计/时钟），拖拽布局，用户级配置持久化，IP 自动天气定位
 ---
 
 ## 技术栈
@@ -50,8 +47,7 @@ features:
 | 缓存 | Redis | Token 缓存、在线状态、SSO |
 | 对象存储 | MinIO | 附件上传下载 |
 | 邮件 | MailKit (SMTP) | 密码重置验证码 |
-| 流程引擎 | 自研 LogicFlow 状态机 | 可视化建模 + 审批流转 |
-| 前端框架 | Vue 3 + Element Plus + LogicFlow | Composition API |
+| 前端框架 | Vue 3 + Element Plus | Composition API |
 | 构建工具 | Vite | ^8.0 |
 | 文档 | VitePress | latest |
 

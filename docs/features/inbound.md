@@ -14,8 +14,6 @@ InboundOrder (主表)
   ├── TotalCostAmount (计成本合计)
   ├── TotalTaxAmount (税额合计)
   ├── TaxRate (税率，小数形式)
-  ├── Status: draft / pending_approval / approved / rejected
-  ├── WorkflowInstanceId (关联流程实例)
   ├── IsDeleted (软删除)
   └── Details[] (明细列表)
 
@@ -55,7 +53,6 @@ InboundOrderDetail (明细)
 | POST | `/api/inboundorder` | 创建（含明细） |
 | PUT | `/api/inboundorder/{id}` | 更新 |
 | DELETE | `/api/inboundorder/{id}` | 软删除 |
-| POST | `/api/inboundorder/{id}/submit` | 提交审批 |
 | PUT | `/api/inboundorder/{id}/details/sync` | 同步明细（批量替换） |
 | GET | `/api/inboundorder/{id}/attachments` | 获取附件列表 |
 | POST | `/api/inboundorder/{id}/upload` | 上传附件 |
@@ -76,14 +73,6 @@ InboundOrderDetail (明细)
 - 文件信息存入 `InboundOrderAttachments` 表
 - MinIO ObjectKey 用于下载和删除
 - 支持在详情页预览和下载
-
-## 审批集成
-
-1. 入库单编辑完成后点击"提交审批"
-2. 状态变为 `pending_approval`
-3. 自动创建流程实例，关联 `WorkflowInstanceId`
-4. 审批人可在"待办任务"中查看并审批
-5. 通过 → `approved`，驳回 → `rejected`（可重新编辑提交）
 
 ## CSV 导出
 

@@ -71,19 +71,6 @@ public class InboundOrderController : ControllerBase
         return Ok(new { success = true, message = "入库单已删除" });
     }
 
-    // ========== 审批流程 ==========
-
-    [HttpPost("{id}/submit")]
-    public async Task<IActionResult> SubmitForApproval(int id, [FromBody] SubmitApprovalRequest req)
-    {
-        try
-        {
-            var msg = await _svc.SubmitForApprovalAsync(id, req.DefinitionId, UserId);
-            return Ok(new { success = true, message = msg });
-        }
-        catch (InvalidOperationException ex) { return BadRequest(new { success = false, message = ex.Message }); }
-    }
-
     // ========== 明细管理 ==========
 
     [HttpPut("{orderId}/details/sync")]

@@ -405,59 +405,5 @@ export function deleteUnifiedAttachment(attachmentId) {
   return api.delete(`/attachment/${attachmentId}`)
 }
 
-// ========== 流程审批 API ==========
-
-export function getWorkflowDefinitions(params) {
-  return api.get('/workflow', { params })
-}
-export function getWorkflowDefinition(id) {
-  return api.get(`/workflow/${id}`)
-}
-export function createWorkflowDefinition(data) {
-  return api.post('/workflow', data)
-}
-export function updateWorkflowDefinition(id, data) {
-  return api.put(`/workflow/${id}`, data)
-}
-export function publishWorkflow(id) {
-  return api.post(`/workflow/${id}/publish`)
-}
-export function deleteWorkflowDefinition(id) {
-  return api.delete(`/workflow/${id}`)
-}
-
-export function getWorkflowInstances(params) {
-  return api.get('/workflow-instance', { params })
-}
-export function getWorkflowInstance(id) {
-  return api.get(`/workflow-instance/${id}`)
-}
-export function startWorkflow(data) {
-  return api.post('/workflow-instance/start', data)
-}
-export function approveWorkflow(id, data) {
-  return api.post(`/workflow-instance/${id}/approve`, data)
-}
-export function rejectWorkflow(id, data) {
-  return api.post(`/workflow-instance/${id}/reject`, data)
-}
-export function recallWorkflow(id) {
-  return api.post(`/workflow-instance/${id}/recall`)
-}
-
-export function getTodoTasks() {
-  return api.get('/workflow-task/todo')
-}
-export function getDoneTasks() {
-  return api.get('/workflow-task/done')
-}
-export function getMyApplications() {
-  return api.get('/workflow-task/my-applications')
-}
-
-export function getWorkflowStats() {
-  return api.get('/workflow/stats')
-}
-
 // 导出 axios 实例供其他模块使用
 export { api }

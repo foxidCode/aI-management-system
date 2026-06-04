@@ -106,9 +106,6 @@ public static class SeedData
             new() { Name = "附件管理", Code = "attachment:manage", Description = "统一查看和管理所有模块的附件" },
             new() { Name = "数据库管理", Code = "database:manage", Description = "配置数据库连接，浏览表结构，执行SQL查询" },
             new() { Name = "集成平台", Code = "integration:manage", Description = "低代码集成平台：配置接口连接、数据同步任务" },
-            new() { Name = "流程管理", Code = "workflow:manage", Description = "创建、编辑、发布、归档流程定义" },
-            new() { Name = "审批操作", Code = "workflow:approve", Description = "审批/驳回流程节点，查看待办已办" },
-            new() { Name = "流程监控", Code = "workflow:monitor", Description = "查看所有流程实例，强制终止或删除" },
         };
 
         var added = new List<Permission>();
@@ -412,55 +409,6 @@ public static class SeedData
                 m.PermissionCode = "material:view";
             else if (m.Path == "/dashboard/inbound" && string.IsNullOrEmpty(m.PermissionCode))
                 m.PermissionCode = "inbound:view";
-        }
-
-        // ===== 流程中心 父级菜单 + 子菜单 =====
-        var wfParent = db.Menus.FirstOrDefault(m => m.Name == "流程中心" && m.ParentId == null);
-        if (wfParent == null)
-        {
-            wfParent = new Menu
-            {
-                Name = "流程中心",
-                Path = null,
-                Icon = "Operation",
-                ParentId = null,
-                SortOrder = 50,
-                PermissionCode = null,
-                MenuType = "menu",
-                Component = null,
-            };
-            db.Menus.Add(wfParent);
-            db.SaveChanges();
-        }
-
-        var wfMenus = new[] {
-            ("/dashboard/workflows/design", "流程设计", "Edit"),
-            ("/dashboard/workflows", "流程管理", "List"),
-            ("/dashboard/workflows/monitor", "流程监控", "Monitor"),
-            ("/dashboard/workflows/stats", "流程统计", "DataAnalysis"),
-        };
-        foreach (var (path, name, icon) in wfMenus)
-        {
-            if (!existingPaths.Contains(path))
-            {
-                db.Menus.Add(new Menu
-                {
-                    Name = name, Path = path, Icon = icon,
-                    ParentId = wfParent.Id, SortOrder = wfMenus.Select(w => w.Item1).ToList().IndexOf(path),
-                    PermissionCode = "workflow:manage", MenuType = "menu",
-                    Component = path.Split('/').Last().Replace("-", ""),
-                });
-            }
-        }
-
-        // 待办/已办 — 需要审批权限即可见
-        if (!existingPaths.Contains("/dashboard/workflows/todo"))
-        {
-            db.Menus.Add(new Menu { Name = "待办任务", Path = "/dashboard/workflows/todo", Icon = "AlarmClock", ParentId = wfParent.Id, SortOrder = 10, PermissionCode = "workflow:approve", MenuType = "menu", Component = "WorkflowTodo" });
-        }
-        if (!existingPaths.Contains("/dashboard/workflows/done"))
-        {
-            db.Menus.Add(new Menu { Name = "已办任务", Path = "/dashboard/workflows/done", Icon = "Finished", ParentId = wfParent.Id, SortOrder = 11, PermissionCode = "workflow:approve", MenuType = "menu", Component = "WorkflowDone" });
         }
 
         // 帮助中心（外部链接，新标签页打开）

@@ -9,13 +9,11 @@ public class InboundOrderService
 {
     private readonly AppDbContext _db;
     private readonly AttachmentService _attachmentService;
-    private readonly WorkflowEngine? _workflowEngine;
 
-    public InboundOrderService(AppDbContext db, AttachmentService attachmentService, WorkflowEngine? workflowEngine = null)
+    public InboundOrderService(AppDbContext db, AttachmentService attachmentService)
     {
         _db = db;
         _attachmentService = attachmentService;
-        _workflowEngine = workflowEngine;
     }
 
     // ========== 材料字典 ==========
@@ -504,29 +502,6 @@ public class InboundOrderService
     }
 
     // ========== 辅助 ==========
-
-    // ========== 审批流程 ==========
-
-    public async Task<string> SubmitForApprovalAsync(int orderId, int definitionId, int userId)
-    {
-        var order = await _db.InboundOrders.FindAsync(orderId)
-            ?? throw new InvalidOperationException("入库单不存在");
-
-        if (order.Status != "draft")
-            throw new InvalidOperationException("只有草稿状态的入库单可以提交审批");
-
-        if (_workflowEngine == null)
-            throw new InvalidOperationException("工作流引擎未配置");
-
-        var instance = await _workflowEngine.StartWorkflowAsync(definitionId, "InboundOrder", orderId.ToString(), userId);
-
-        order.Status = "pending_approval";
-        order.WorkflowInstanceId = instance.Id;
-        order.UpdatedAt = DateTime.Now;
-        await _db.SaveChangesAsync();
-
-        return "已提交审批";
-    }
 
     private async Task<string> GenerateOrderCodeAsync()
     {
