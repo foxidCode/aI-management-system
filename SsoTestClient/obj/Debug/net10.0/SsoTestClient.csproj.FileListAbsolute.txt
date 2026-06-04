@@ -1,0 +1,14 @@
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.AssemblyInfoInputs.cache
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.AssemblyInfo.cs
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.csproj.CoreCompileInputs.cache
+C:\Users\闻\Desktop\demo\SsoTestClient\bin\Debug\net10.0\SsoTestClient.exe
+C:\Users\闻\Desktop\demo\SsoTestClient\bin\Debug\net10.0\SsoTestClient.deps.json
+C:\Users\闻\Desktop\demo\SsoTestClient\bin\Debug\net10.0\SsoTestClient.runtimeconfig.json
+C:\Users\闻\Desktop\demo\SsoTestClient\bin\Debug\net10.0\SsoTestClient.dll
+C:\Users\闻\Desktop\demo\SsoTestClient\bin\Debug\net10.0\SsoTestClient.pdb
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.dll
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\refint\SsoTestClient.dll
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.pdb
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\SsoTestClient.genruntimeconfig.cache
+C:\Users\闻\Desktop\demo\SsoTestClient\obj\Debug\net10.0\ref\SsoTestClient.dll
