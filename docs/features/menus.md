@@ -12,6 +12,7 @@
   "name": "系统管理",
   "icon": "Setting",
   "path": null,
+  "sortOrder": 99,
   "children": [
     { "id": 10, "name": "计划任务", "path": "/dashboard/schedule", "permissionCode": "integration:manage" }
   ]
@@ -23,16 +24,63 @@
 | 字段 | 说明 |
 |------|------|
 | name | 显示名称 |
-| path | 路由路径（外部链接以 http:// 开头） |
+| path | 路由路径（`http://` 开头则作为外部链接在新窗口打开） |
 | icon | Element Plus 图标名 |
-| parentId | 父级菜单 ID |
-| sortOrder | 排序 |
+| parentId | 父级菜单 ID（null 为一级菜单） |
+| sortOrder | 排序数值（越小越靠前） |
 | permissionCode | 权限码（null = 所有人可见） |
-| component | 对应 Vue 组件名 |
+| menuType | 类型：menu（菜单项）/ button（按钮） |
+| component | Vue 组件名（用于路由懒加载） |
 
 ## 菜单搜索
 
-顶栏左侧的搜索框支持快速搜索菜单：
-- 输入名称模糊匹配
-- 显示父级分组名称
-- 键盘导航（↑↓Enter）
+顶栏左侧的搜索框支持快速菜单搜索：
+
+- **输入匹配**：模糊匹配菜单名称
+- **分组显示**：显示父级分组名称
+- **键盘导航**：↑ ↓ 切换，Enter 跳转，Esc 关闭
+- **权限过滤**：搜索结果仅显示用户有权限的菜单
+
+## 权限过滤规则
+
+1. `permissionCode` 为 `null` → 所有人可见
+2. `permissionCode` 有值 → 仅拥有对应权限的用户可见
+3. **admin 用户特殊规则**：自动获取全部菜单（包括 `database:manage` 等管理员专属菜单）
+4. 父菜单无可见子菜单时，父菜单也隐藏
+
+## 菜单层级
+
+```
+📊 主页
+  ├── 仪表盘 → /dashboard/home
+  └── 个人信息 → /dashboard/profile
+
+⚙️ 系统管理
+  ├── 用户列表 → /dashboard/users
+  ├── 角色管理 → /dashboard/roles
+  ├── 材料字典 → /dashboard/materials
+  ├── 入库单 → /dashboard/inbound
+  ├── SSO 管理 → /dashboard/sso
+  ├── OAuth 客户端 → /dashboard/oauth-clients
+  ├── 主页配置 → /dashboard/home-config
+  ├── 附件管理 → /dashboard/attachments
+  ├── 数据库管理 → /dashboard/database
+  ├── 集成平台 → /dashboard/integration
+  ├── 计划任务 → /dashboard/schedule
+  └── 系统配置 → (系统设置)
+
+🔄 流程中心
+  ├── 流程设计 → /dashboard/workflows/design
+  ├── 流程管理 → /dashboard/workflows
+  ├── 待办任务 → /dashboard/workflows/todo
+  ├── 已办任务 → /dashboard/workflows/done
+  ├── 流程监控 → /dashboard/workflows/monitor
+  └── 流程统计 → /dashboard/workflows/stats
+
+📚 接口文档 → /swagger (外部链接)
+❓ 帮助中心 → http://localhost:5174 (外部链接)
+```
+
+## 外部链接
+
+菜单 `path` 以 `http://` 或 `https://` 开头时，前端自动识别并在新标签页打开，不进行 SPA 路由跳转。适用于 Swagger 文档、帮助中心等外部资源。
