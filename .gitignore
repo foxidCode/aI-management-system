@@ -6,10 +6,28 @@ backend/bin/
 backend/obj/
 *.exe
 *.dll
+dist/
+
+# VitePress
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Environment
 .env
 *.env.local
+!.env.example
+
+# Docker
+docker-compose.override.yml
+
+# Jenkins
+jenkins_home/
+
+# SQLite data
+*.db
+*.db-shm
+*.db-wal
+!/**/auth.db.example
 
 # IDE
 .vs/

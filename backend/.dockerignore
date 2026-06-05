@@ -1,0 +1,23 @@
+# 编译产物
+bin/
+obj/
+
+# SQLite 数据库
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+.idea/
+
+# 环境文件
+appsettings.Development.json
+*.env.local
+
+# Git
+.git/
+.gitignore
+
+# 文档
+*.md

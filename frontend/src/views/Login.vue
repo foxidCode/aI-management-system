@@ -15,7 +15,7 @@
         <el-form-item label="用户名" prop="username">
           <el-input
             v-model="loginForm.username"
-            placeholder="请输入用户名"
+            placeholder="请输入用户名1"
             :prefix-icon="User"
             size="large"
           />
