@@ -104,10 +104,10 @@ public class UserManagementController : ControllerBase
             return BadRequest(new { success = false, message = GetModelError() });
 
         if (await _db.Users.AnyAsync(u => u.Username == request.Username))
-            return BadRequest(new { success = false, message = "用户名已存在1" });
+            return BadRequest(new { success = false, message = "用户名已存在" });
 
         if (await _db.Users.AnyAsync(u => u.Email == request.Email))
-            return BadRequest(new { success = false, message = "邮箱已被使用1" });
+            return BadRequest(new { success = false, message = "邮箱已被使用" });
 
         var user = new User
         {
