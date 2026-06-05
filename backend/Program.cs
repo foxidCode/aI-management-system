@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using backend.Data;
 using backend.Services;
+using backend.Hubs;
 using backend;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,17 @@ builder.Services.AddAuthentication(options =>
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                // SignalR WebSocket 通过 query string 传 token
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            },
             OnTokenValidated = async ctx =>
             {
                 var redis = ctx.HttpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>();
@@ -100,6 +112,12 @@ builder.Services.AddScoped<SsoService>();
 builder.Services.AddScoped<OAuthService>();
 builder.Services.AddScoped<OidcService>();
 builder.Services.AddSingleton<MinioService>();
+builder.Services.AddScoped<WorkflowDefinitionService>();
+builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<NotificationService>();
+
+// SignalR 实时通知
+builder.Services.AddSignalR();
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -467,6 +485,100 @@ using (var scope = app.Services.CreateScope())
     SeedData.EnsureOAuthPermissions(db);
     SeedData.EnsureOAuthMenus(db);
     SeedData.EnsureOAuthClients(db);
+
+    // 增量迁移：User 新增 LeaderId 字段（工作流主管审批链）
+    try { db.Database.ExecuteSqlRaw(@"ALTER TABLE Users ADD COLUMN LeaderId INTEGER REFERENCES Users(Id)"); } catch { }
+
+    // 工作流相关表
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS WorkflowDefinitions (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL,
+            Key TEXT NOT NULL,
+            GroupId TEXT,
+            FlowCode TEXT,
+            FrmType INTEGER NOT NULL DEFAULT 1,
+            FrmValue TEXT,
+            FrmUrl TEXT,
+            DistinctType INTEGER NOT NULL DEFAULT 0,
+            IsActive INTEGER NOT NULL DEFAULT 1,
+            Version TEXT DEFAULT '1.0',
+            Remark TEXT,
+            Nodes TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_WorkflowDefinitions_Key ON WorkflowDefinitions(Key);
+    ");
+
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS WorkflowInstances (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            DefinitionId INTEGER NOT NULL,
+            DefinitionName TEXT,
+            Version TEXT,
+            ApplicantId INTEGER NOT NULL,
+            FormData TEXT,
+            Status TEXT NOT NULL DEFAULT 'Running',
+            CurrentNodeId TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            CompletedAt TEXT,
+            FOREIGN KEY (DefinitionId) REFERENCES WorkflowDefinitions(Id) ON DELETE RESTRICT,
+            FOREIGN KEY (ApplicantId) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS IX_WfInstances_DefinitionId ON WorkflowInstances(DefinitionId);
+        CREATE INDEX IF NOT EXISTS IX_WfInstances_ApplicantId ON WorkflowInstances(ApplicantId);
+        CREATE INDEX IF NOT EXISTS IX_WfInstances_Status ON WorkflowInstances(Status);
+    ");
+
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS WorkflowTasks (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            InstanceId INTEGER NOT NULL,
+            NodeId TEXT NOT NULL,
+            NodeName TEXT,
+            NodeType INTEGER NOT NULL DEFAULT 4,
+            AssigneeId INTEGER,
+            AssigneeType INTEGER,
+            ActionType TEXT,
+            Status TEXT NOT NULL DEFAULT 'Pending',
+            FormData TEXT,
+            Comment TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            CompletedAt TEXT,
+            ParentTaskId INTEGER,
+            FOREIGN KEY (InstanceId) REFERENCES WorkflowInstances(Id) ON DELETE CASCADE,
+            FOREIGN KEY (AssigneeId) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS IX_WfTasks_InstanceId ON WorkflowTasks(InstanceId);
+        CREATE INDEX IF NOT EXISTS IX_WfTasks_AssigneeId ON WorkflowTasks(AssigneeId);
+        CREATE INDEX IF NOT EXISTS IX_WfTasks_Status ON WorkflowTasks(Status);
+    ");
+
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS WorkflowHistories (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            InstanceId INTEGER NOT NULL,
+            TaskId INTEGER,
+            ActionType TEXT NOT NULL,
+            ActorId INTEGER NOT NULL,
+            ActorName TEXT,
+            Comment TEXT,
+            FormDataSnapshot TEXT,
+            FromNodeId TEXT,
+            ToNodeId TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (InstanceId) REFERENCES WorkflowInstances(Id) ON DELETE CASCADE,
+            FOREIGN KEY (TaskId) REFERENCES WorkflowTasks(Id) ON DELETE SET NULL,
+            FOREIGN KEY (ActorId) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS IX_WfHistory_InstanceId ON WorkflowHistories(InstanceId);
+    ");
+
+    // 工作流种子数据
+    SeedData.EnsureWorkflowPermissions(db);
+    SeedData.EnsureWorkflowMenus(db);
 }
 
 // Swagger UI（所有环境可用，用于接口测试和第三方对接文档）
@@ -511,5 +623,6 @@ app.MapGet("/.well-known/jwks.json", (RsaKeyProvider rsa) =>
 });
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notification");
 
 app.Run();

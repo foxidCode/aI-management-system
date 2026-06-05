@@ -103,6 +103,32 @@
               <span style="margin-left:4px">帮助</span>
             </el-button>
           </el-tooltip>
+          <!-- 通知铃铛 -->
+          <el-popover placement="bottom-end" :width="340" trigger="click" :offset="8">
+            <template #reference>
+              <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+                <el-button link @click="markAllRead()">
+                  <el-icon :size="20"><Bell /></el-icon>
+                </el-button>
+              </el-badge>
+            </template>
+            <div class="notify-list" v-if="notifications.length > 0">
+              <div v-for="n in notifications.slice(0, 20)" :key="n.id"
+                   class="notify-item" :class="{ unread: !n.read }"
+                   @click="goToInstance(n)">
+                <div class="notify-dot"></div>
+                <div class="notify-body">
+                  <p class="notify-msg">{{ n.message }}</p>
+                  <span class="notify-time">{{ formatNotifyTime(n.timestamp) }}</span>
+                </div>
+              </div>
+              <el-button v-if="notifications.length > 0" link type="danger" size="small" style="margin-top:8px" @click="clearAll()">
+                清空全部通知
+              </el-button>
+            </div>
+            <el-empty v-else description="暂无通知" :image-size="60" />
+          </el-popover>
+
           <el-divider direction="vertical" />
           <el-icon><UserFilled /></el-icon>
           <span class="username">{{ username }}</span>
@@ -122,13 +148,25 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Bell } from '@element-plus/icons-vue'
 import { getUserMenus } from '../api/auth'
+import { useSignalR } from '../composables/useSignalR.js'
 
 const router = useRouter()
 const route = useRoute()
 
 const activeMenu = computed(() => route.path)
+
+// SignalR 通知
+const { notifications, unreadCount, connect: connectSignalR, disconnect: disconnectSignalR, markAllRead, clearAll } = useSignalR()
+function goToInstance(n) { markAllRead(); if (n.instanceId) router.push(`/dashboard/workflow/instance/${n.instanceId}`) }
+function formatNotifyTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts), now = new Date(), diff = now - d
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff/60000)} 分钟前`
+  return d.toLocaleTimeString('zh-CN')
+}
 
 function handleMenuSelect(index) {
   // 外部链接（http/https）在新标签页打开，同时阻止vue-router改变当前页URL
@@ -174,13 +212,17 @@ async function handleLogout() {
     localStorage.removeItem('permissions')
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('id_token')
+    disconnectSignalR()
     router.push('/login')
   } catch {
     // 用户取消
   }
 }
 
-onMounted(fetchMenus)
+onMounted(() => {
+  fetchMenus()
+  connectSignalR()
+})
 
 // ========== 菜单搜索 ==========
 const searchVisible = ref(false)
@@ -355,4 +397,15 @@ function goToMenu(item) {
   background: #f0f2f5;
   padding: 20px;
 }
+
+/* 通知列表样式 */
+.notify-list { max-height: 360px; overflow-y: auto; }
+.notify-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer; border-radius: 4px; transition: background 0.15s; }
+.notify-item:hover { background: #f5f7fa; }
+.notify-item.unread { background: #ecf5ff; }
+.notify-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; background: #409eff; }
+.notify-item:not(.unread) .notify-dot { background: #c0c4cc; }
+.notify-body { flex: 1; min-width: 0; }
+.notify-msg { margin: 0; font-size: 13px; color: #303133; line-height: 1.5; }
+.notify-time { font-size: 11px; color: #909399; }
 </style>

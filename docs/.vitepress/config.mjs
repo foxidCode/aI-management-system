@@ -42,7 +42,6 @@ export default defineConfig({
             { text: '权限管理 (RBAC)', link: '/features/rbac' },
             { text: '动态菜单', link: '/features/menus' },
             { text: '入库单管理', link: '/features/inbound' },
-            { text: '流程审批', link: '/features/workflow' },
             { text: '计划任务', link: '/features/scheduler' },
             { text: '集成平台', link: '/features/integration' },
             { text: '数据库管理', link: '/features/database' },

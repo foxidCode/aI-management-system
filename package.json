@@ -6,5 +6,8 @@
     "docs:dev": "vitepress dev docs --port 5174",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs --port 5174"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.0"
   }
 }

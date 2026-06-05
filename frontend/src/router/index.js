@@ -36,8 +36,15 @@ const routes = [
       { path: 'database', component: () => import('../views/DatabaseManagement.vue') },
       { path: 'integration', component: () => import('../views/IntegrationManagement.vue') },
       { path: 'schedule', component: () => import('../views/ScheduleManagement.vue') },
+      { path: 'workflow/definitions', component: () => import('../views/WorkflowDefinitionList.vue') },
+      { path: 'workflow/my-applications', component: () => import('../views/WorkflowMyApplications.vue') },
+      { path: 'workflow/my-tasks', component: () => import('../views/WorkflowTaskList.vue') },
+      { path: 'workflow/instance/:id', component: () => import('../views/WorkflowInstanceDetail.vue') },
+      { path: 'workflow/submit/:id', component: () => import('../views/WorkflowSubmitForm.vue') },
     ]
   },
+  // 工作流设计器（全屏独立路由，不套 Dashboard 壳）
+  { path: '/workflow/designer/:id?', component: () => import('../views/WorkflowDesigner.vue'), meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

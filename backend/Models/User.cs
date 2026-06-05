@@ -28,6 +28,10 @@ public class User
     [MaxLength(500)]
     public string? Remark { get; set; }
 
+    /// <summary>直属领导 ID（用于工作流主管审批链）</summary>
+    public int? LeaderId { get; set; }
+    public User? Leader { get; set; }
+
     /// <summary>主页卡片配置（JSON）</summary>
     [MaxLength(4000)]
     public string? HomeConfig { get; set; }

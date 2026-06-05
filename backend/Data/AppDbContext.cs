@@ -28,6 +28,10 @@ public class AppDbContext : DbContext
     public DbSet<OAuthClient> OAuthClients => Set<OAuthClient>();
     public DbSet<AuthorizationCode> AuthorizationCodes => Set<AuthorizationCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
+    public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
+    public DbSet<WorkflowTask> WorkflowTasks => Set<WorkflowTask>();
+    public DbSet<WorkflowHistory> WorkflowHistories => Set<WorkflowHistory>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,6 +43,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+
+        // User 自引用：LeaderId FK
+        modelBuilder.Entity<User>()
+            .HasOne(u => u.Leader)
+            .WithMany()
+            .HasForeignKey(u => u.LeaderId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Role>()
             .HasIndex(r => r.Name)
@@ -162,6 +173,77 @@ public class AppDbContext : DbContext
             .WithMany(c => c.RefreshTokens)
             .HasForeignKey(r => r.ClientId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // WorkflowDefinition：Key 唯一
+        modelBuilder.Entity<WorkflowDefinition>()
+            .HasIndex(d => d.Key)
+            .IsUnique();
+
+        // WorkflowInstance：按 DefinitionId / ApplicantId / Status 索引
+        modelBuilder.Entity<WorkflowInstance>()
+            .HasIndex(i => i.DefinitionId);
+
+        modelBuilder.Entity<WorkflowInstance>()
+            .HasIndex(i => i.ApplicantId);
+
+        modelBuilder.Entity<WorkflowInstance>()
+            .HasIndex(i => i.Status);
+
+        modelBuilder.Entity<WorkflowInstance>()
+            .HasOne(i => i.Definition)
+            .WithMany()
+            .HasForeignKey(i => i.DefinitionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WorkflowInstance>()
+            .HasOne(i => i.Applicant)
+            .WithMany()
+            .HasForeignKey(i => i.ApplicantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // WorkflowTask：按 InstanceId / AssigneeId / Status 索引
+        modelBuilder.Entity<WorkflowTask>()
+            .HasIndex(t => t.InstanceId);
+
+        modelBuilder.Entity<WorkflowTask>()
+            .HasIndex(t => t.AssigneeId);
+
+        modelBuilder.Entity<WorkflowTask>()
+            .HasIndex(t => t.Status);
+
+        modelBuilder.Entity<WorkflowTask>()
+            .HasOne(t => t.Instance)
+            .WithMany(i => i.Tasks)
+            .HasForeignKey(t => t.InstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowTask>()
+            .HasOne(t => t.Assignee)
+            .WithMany()
+            .HasForeignKey(t => t.AssigneeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // WorkflowHistory：按 InstanceId 索引
+        modelBuilder.Entity<WorkflowHistory>()
+            .HasIndex(h => h.InstanceId);
+
+        modelBuilder.Entity<WorkflowHistory>()
+            .HasOne(h => h.Instance)
+            .WithMany(i => i.Histories)
+            .HasForeignKey(h => h.InstanceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WorkflowHistory>()
+            .HasOne(h => h.Task)
+            .WithMany()
+            .HasForeignKey(h => h.TaskId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<WorkflowHistory>()
+            .HasOne(h => h.Actor)
+            .WithMany()
+            .HasForeignKey(h => h.ActorId)
+            .OnDelete(DeleteBehavior.Restrict);
 
 
 

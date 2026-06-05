@@ -222,6 +222,111 @@ public static class SeedData
     }
 
     /// <summary>
+    /// 确保工作流权限存在
+    /// </summary>
+    public static void EnsureWorkflowPermissions(AppDbContext db)
+    {
+        var existingCodes = db.Permissions.Select(p => p.Code).ToHashSet();
+        var newPerms = new List<Permission>
+        {
+            new() { Name = "流程定义", Code = "workflow:define", Description = "设计、编辑、发布工作流定义" },
+            new() { Name = "流程提交", Code = "workflow:submit", Description = "发起工作流申请" },
+            new() { Name = "流程审批", Code = "workflow:approve", Description = "审批待办任务" },
+            new() { Name = "流程查看", Code = "workflow:view", Description = "查看所有流程实例和历史" },
+        };
+
+        var added = new List<Permission>();
+        foreach (var p in newPerms)
+        {
+            if (!existingCodes.Contains(p.Code))
+            {
+                db.Permissions.Add(p);
+                added.Add(p);
+            }
+        }
+
+        if (added.Count > 0)
+        {
+            db.SaveChanges();
+            var adminRole = db.Roles.FirstOrDefault(r => r.Name == "超级管理员");
+            if (adminRole != null)
+            {
+                foreach (var p in added)
+                {
+                    if (!db.RolePermissions.Any(rp => rp.RoleId == adminRole.Id && rp.PermissionId == p.Id))
+                        db.RolePermissions.Add(new RolePermission { RoleId = adminRole.Id, PermissionId = p.Id });
+                }
+                db.SaveChanges();
+
+                // 也给普通用户分配流程提交和审批权限
+                var normalRole = db.Roles.FirstOrDefault(r => r.Name == "普通用户");
+                if (normalRole != null)
+                {
+                    var userPerms = added.Where(p => p.Code is "workflow:submit" or "workflow:approve").ToList();
+                    foreach (var p in userPerms)
+                    {
+                        if (!db.RolePermissions.Any(rp => rp.RoleId == normalRole.Id && rp.PermissionId == p.Id))
+                            db.RolePermissions.Add(new RolePermission { RoleId = normalRole.Id, PermissionId = p.Id });
+                    }
+                    db.SaveChanges();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 确保工作流菜单存在
+    /// </summary>
+    public static void EnsureWorkflowMenus(AppDbContext db)
+    {
+        var existingPaths = db.Menus.Select(m => m.Path).ToHashSet();
+
+        // 工作流父级菜单
+        var wfParent = db.Menus.FirstOrDefault(m => m.Name == "工作流" && m.ParentId == null);
+        if (wfParent == null)
+        {
+            wfParent = new Menu
+            {
+                Name = "工作流",
+                Path = null,
+                Icon = "Promotion",
+                ParentId = null,
+                SortOrder = 6,
+                PermissionCode = null,
+                MenuType = "menu",
+                Component = null,
+            };
+            db.Menus.Add(wfParent);
+            db.SaveChanges();
+        }
+
+        // 调整已有菜单的 SortOrder 给工作流腾位置（入库单 5→7，OAuth 7→8）
+        var inbound = db.Menus.FirstOrDefault(m => m.Path == "/dashboard/inbound");
+        if (inbound != null && inbound.ParentId == null) { inbound.SortOrder = 7; }
+
+        var oauthMenu = db.Menus.FirstOrDefault(m => m.Path == "/dashboard/oauth-clients");
+        if (oauthMenu != null) { oauthMenu.SortOrder = 8; }
+
+        // 子菜单
+        var childMenus = new List<Menu>
+        {
+            new() { Name = "流程定义", Path = "/dashboard/workflow/definitions", Icon = "Document", ParentId = wfParent.Id, SortOrder = 1, PermissionCode = "workflow:define", MenuType = "menu", Component = "WorkflowDefinitionList" },
+            new() { Name = "我的申请", Path = "/dashboard/workflow/my-applications", Icon = "Edit", ParentId = wfParent.Id, SortOrder = 2, PermissionCode = "workflow:submit", MenuType = "menu", Component = "WorkflowMyApplications" },
+            new() { Name = "待办审批", Path = "/dashboard/workflow/my-tasks", Icon = "Checked", ParentId = wfParent.Id, SortOrder = 3, PermissionCode = "workflow:approve", MenuType = "menu", Component = "WorkflowTaskList" },
+        };
+
+        foreach (var m in childMenus)
+        {
+            if (!existingPaths.Contains(m.Path))
+            {
+                db.Menus.Add(m);
+            }
+        }
+
+        db.SaveChanges();
+    }
+
+    /// <summary>
     /// 确保材料字典种子数据（500条）
     /// </summary>
     public static void EnsureMaterials(AppDbContext db)
