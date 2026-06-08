@@ -22,7 +22,7 @@ public class WorkflowDefinitionService
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var kw = keyword.Trim().ToLower();
-            q = q.Where(d => d.Name.ToLower().Contains(kw) || d.Key.ToLower().Contains(kw));
+            q = q.Where(d => d.Name.ToLower().Contains(kw) || d.Key.ToLower().Contains(kw) || (d.FlowCode != null && d.FlowCode.ToLower().Contains(kw)));
         }
         var total = await q.CountAsync();
         var query = q.OrderByDescending(d => d.UpdatedAt);
@@ -218,7 +218,7 @@ public class WorkflowDefinitionService
     public async Task<WorkflowTaskListResponse> GetPendingTasksAsync(int assigneeId, int page = 1, int pageSize = 10)
     {
         var q = _db.WorkflowTasks
-            .Include(t => t.Instance)
+            .Include(t => t.Instance).ThenInclude(i => i.Applicant)
             .Include(t => t.Assignee)
             .Where(t => t.Status == "Pending" && t.AssigneeId == assigneeId);
 
@@ -236,7 +236,15 @@ public class WorkflowDefinitionService
                 ActionType = t.ActionType, Status = t.Status,
                 FormData = t.FormData, Comment = t.Comment,
                 CreatedAt = t.CreatedAt, CompletedAt = t.CompletedAt,
-                ParentTaskId = t.ParentTaskId
+                ParentTaskId = t.ParentTaskId,
+                Instance = t.Instance != null ? new TaskInstanceBrief
+                {
+                    Id = t.Instance.Id,
+                    DefinitionId = t.Instance.DefinitionId,
+                    DefinitionName = t.Instance.DefinitionName,
+                    ApplicantName = t.Instance.Applicant != null ? t.Instance.Applicant.Username : null,
+                    Status = t.Instance.Status
+                } : null
             }).ToListAsync();
 
         return new WorkflowTaskListResponse { List = list, Total = total };
@@ -263,7 +271,15 @@ public class WorkflowDefinitionService
                 ActionType = t.ActionType, Status = t.Status,
                 FormData = t.FormData, Comment = t.Comment,
                 CreatedAt = t.CreatedAt, CompletedAt = t.CompletedAt,
-                ParentTaskId = t.ParentTaskId
+                ParentTaskId = t.ParentTaskId,
+                Instance = t.Instance != null ? new TaskInstanceBrief
+                {
+                    Id = t.Instance.Id,
+                    DefinitionId = t.Instance.DefinitionId,
+                    DefinitionName = t.Instance.DefinitionName,
+                    ApplicantName = t.Instance.Applicant != null ? t.Instance.Applicant.Username : null,
+                    Status = t.Instance.Status
+                } : null
             }).ToListAsync();
 
         return new WorkflowTaskListResponse { List = list, Total = total };

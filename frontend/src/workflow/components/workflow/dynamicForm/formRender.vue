@@ -1,229 +1,125 @@
 <template>
-  <div class="app-container">
-    <el-row :gutter="20">
-      <el-col :span="24">
-        <div class="form-container" style="max-width: 80vw; margin: 0 auto;">
-          <div class="el-main">
-            <v-form-render ref="vFormRef" :form-json="formJson" :form-data="formData" :option-data="optionData">
-            </v-form-render>
-          </div>
-          <div class="el-footer" v-if="!isPreview && props.showSubmit">
-            <el-button type="primary" @click="submitForm">提交</el-button>
-          </div>
-        </div>
-      </el-col>
-    </el-row>
+  <div class="form-render-container">
+    <form-create
+      v-model:api="fApi"
+      v-model="formData"
+      :rule="rule"
+      :option="renderOption"
+      :disabled="isPreview"
+      @submit="onSubmit"
+    />
+    <div class="form-footer" v-if="!isPreview && props.showSubmit">
+      <el-button type="primary" @click="handleSubmit">提交</el-button>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeMount, onBeforeUnmount, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
-const isEmpty = data => data === null || data === undefined || data == '' || data == '{}' || data == '[]' || data == 'null';
-const emit = defineEmits(['submit']);
+import { ref, reactive, onMounted, watch, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+
+const emit = defineEmits(['submit'])
 
 let props = defineProps({
-  lfFormData: {// 表单设计 JSON（widgetList + formConfig）
+  lfFormData: {// 表单设计 JSON 字符串 { rule: [...], option: {...} }
     type: String,
-    default: "{}",
+    default: '{}',
   },
-  lfFieldsData: {// 表单字段值 JSON
+  lfFieldsData: {// 表单字段值 JSON 字符串
     type: String,
-    default: "{}",
-  },
-  lfFieldPerm: {// 字段权限控制 JSON 数组
-    type: String,
-    default: "[]",
+    default: '{}',
   },
   showSubmit: {
     type: Boolean,
     default: false,
   },
-  isPreview: {// true=只读模式
+  isPreview: {// true=只读
     type: Boolean,
     default: true,
   }
 });
-/* 注意：formJson是指表单设计器导出的json，此处演示的formJson只是一个空白表单json！！ */
-const formJson = reactive(JSON.parse(props.lfFormData || "{}"));//表单字段渲染
-const formData = reactive(JSON.parse(props.lfFieldsData || "{}"));//表单字段输入值渲染 
-const lfFieldPermData = reactive(JSON.parse(props.lfFieldPerm || "{}"));//表单字段权限控制 
-const optionData = reactive({});
-const vFormRef = ref(null);
-/**表单渲染预处理 */
-const advanceHandleFormData = () => {
-  if (!isEmpty(props.lfFieldsData)) {
-    traverseFieldWidgetsList(formJson.widgetList, handlerFn);
-  }
-}
-/**表单字段权限控制 */
-const handlerFn = (w) => {
-  w.options.hidden = false;//字段都隐藏，隐藏后表单字段不会自动补位
-  const numberFields = ['number', 'select', 'radio'];
-  if (numberFields.includes(w.type)) {
-    if (!w.options.multiple) {
-      formData[w.options.name] = Number(formData[w.options.name]);
-    }
-  }
-  if (props.showSubmit) {
-    w.options.disabled = false;
-    w.options.readonly = false;
-  }
-  else if (!isEmpty(props.lfFieldPerm)) {
-    let info = lfFieldPermData.find(function (ele) { return ele.fieldId == w.options.name; });
-    if (info) {
-      if (info.perm == 'R') {
-        w.options.disabled = true;
-      } else if (info.perm == 'E') {
-        w.options.readonly = false;
-      } else if (info.perm == 'H') {//隐藏字段处理：将所以字段类型转化为input格式，value 赋值为 ****** 
-        if (w.type != 'textarea' && w.options.type != 'input') {
-          w.type = 'input';
-          w.options.type = 'text';
-        }
-        formData[w.options.name] = '******';
-        delete w.options.format;
-        delete w.options.valueFormat;
-        w.options.disabled = true;
-      } else {
-        w.options.disabled = false;
-        w.options.readonly = true;
-      }
-    }
-  } else {
-    if (props.isPreview == true) {
-      w.options.disabled = true;
-      w.options.readonly = true;
-    }
-  }
-}
-/**递归处理表单中所有字段 */
-const traverseFieldWidgetsList = function (widgetList, handler) {
-  if (!widgetList) {
-    return
-  }
-  widgetList.map(w => {
-    if (w.formItemFlag) {
-      handler(w)
-    } else if (w.type === 'grid') {
-      w.cols.map(col => {
-        traverseFieldWidgetsList(col.widgetList, handler, w)
-      })
-    } else if (w.type === 'table') {
-      w.rows.map(row => {
-        row.cols.map(cell => {
-          traverseFieldWidgetsList(cell.widgetList, handler, w)
-        })
-      })
-    } else if (w.type === 'tab') {
-      w.tabs.map(tab => {
-        traverseFieldWidgetsList(tab.widgetList, handler, w)
-      })
-    } else if (w.type === 'sub-form') {
-      traverseFieldWidgetsList(w.widgetList, handler, w)
-    } else if (w.category === 'container') {  //自定义容器
-      traverseFieldWidgetsList(w.widgetList, handler, w)
-    }
-  })
-}
-onBeforeMount(() => {
-  // console.log("isPreview======", JSON.stringify(props.isPreview));
-  // console.log("showSubmit======", JSON.stringify(props.showSubmit));
-  advanceHandleFormData();
+
+const fApi = ref(null)
+const formData = reactive({})
+const rule = ref([])
+const renderOption = reactive({
+  form: { labelWidth: '100px', labelPosition: 'left' },
+  submitBtn: false,
+  resetBtn: false,
 })
+
+function parseRule() {
+  try {
+    const parsed = JSON.parse(props.lfFormData || '{}')
+    rule.value = parsed.rule || []
+    if (parsed.option) {
+      Object.assign(renderOption, parsed.option)
+      renderOption.submitBtn = false  // 始终由自定义按钮控制
+      renderOption.resetBtn = false
+    }
+  } catch {
+    rule.value = []
+  }
+}
+
+// 加载已有字段值
+function loadFormData() {
+  try {
+    const data = JSON.parse(props.lfFieldsData || '{}')
+    // 不覆盖 __approvers__ 等元数据
+    Object.keys(data).forEach(k => {
+      if (!k.startsWith('__')) formData[k] = data[k]
+    })
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
-  nextTick(() => {
-    vFormRef.value.setFormJson(formJson)
-  }).then(() => {
-    vFormRef.value.setFormData(formData)
-  })
+  parseRule()
+  loadFormData()
 })
-onBeforeUnmount(() => {
-  // 清除数据
-  Object.keys(formJson).forEach(key => delete formJson[key]);
-  Object.keys(formData).forEach(key => delete formData[key]);
-  if (lfFieldPermData && Array.isArray(lfFieldPermData)) {
-    lfFieldPermData.splice(0, lfFieldPermData.length);
-  }
+
+// 监听 lfFormData 变化
+watch(() => props.lfFormData, () => {
+  parseRule()
 })
-const submitForm = () => {
-  vFormRef.value.getFormData().then(res => {
-    emit("submit", JSON.stringify(res))
-  }).catch(error => {
-    ElMessage.error(String(error))
+
+const handleSubmit = () => {
+  if (!fApi.value) return
+  fApi.value.validate((valid) => {
+    if (valid) {
+      onSubmit(formData)
+    }
   })
 }
-const handleValidate = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      vFormRef.value.validateForm((isValid) => {
-        if (!isValid) {
-          reject(false);
-        }
-        else {
-          resolve(isValid);
-        }
-      });
-    } catch (error) {
-      reject(false);
-    }
-  });
+
+function onSubmit(data) {
+  emit('submit', JSON.stringify(data))
 }
 
-const getFromData = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      vFormRef.value.getFormData().then(res => {
-        resolve(JSON.stringify(res));
-      }).catch(() => {
-        reject("");
-      })
-    } catch {
-      reject("");
-    }
-  });
-}
-
-
-/* 替换空字符串为null*/
-const replaceEmptyStringWithNull = (obj) => {
-  if (obj && typeof obj === 'object') {
-    Object.keys(obj).forEach(key => {
-      if (obj[key] === "") {
-        obj[key] = null;
-      } else if (typeof obj[key] === 'object') {
-        replaceEmptyStringWithNull(obj[key]);
-      }
-    });
-  }
-  return obj;
-}
 defineExpose({
-  handleValidate,
-  getFromData
+  handleValidate: () => {
+    return new Promise((resolve, reject) => {
+      if (!fApi.value) { resolve(true); return }
+      fApi.value.validate((valid) => { valid ? resolve(true) : reject(false) })
+    })
+  },
+  getFromData: () => {
+    return Promise.resolve(JSON.stringify(formData))
+  }
 })
 </script>
+
 <style scoped>
-.form-container {
-  /* 新增父级定位 */
+.form-render-container {
   display: flex;
   flex-direction: column;
-  margin: auto;
-  background: #eee !important;
 }
-
-.form-container .el-main {
-  background-color: #fff;
-  flex: 1 1 auto;
-}
-
-.form-container .el-footer {
-  background-color: #fff;
-  border-top: 2px solid #f0f0f0;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+.form-footer {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  padding-right: 24px;
+  padding: 16px 24px;
+  background: #fff;
+  border-top: 2px solid #f0f0f0;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
 }
 </style>

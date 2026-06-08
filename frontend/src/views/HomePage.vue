@@ -24,6 +24,8 @@ import WeatherCard from '../components/WeatherCard.vue'
 import InboundChartCard from '../components/InboundChartCard.vue'
 import StatsCard from '../components/StatsCard.vue'
 import ClockCard from '../components/ClockCard.vue'
+import TodoCard from '../components/TodoCard.vue'
+import DoneCard from '../components/DoneCard.vue'
 import { getHomeConfig } from '../api/auth'
 
 // ========== 卡片注册表 ==========
@@ -32,6 +34,8 @@ const CARD_REGISTRY = {
   inboundChart: { title: '入库统计', component: InboundChartCard },
   stats: { title: '系统统计', component: StatsCard },
   clock: { title: '时钟', component: ClockCard },
+  todo: { title: '我的待办', component: TodoCard },
+  done: { title: '我的已办', component: DoneCard },
 }
 
 function loadComponent(type) {

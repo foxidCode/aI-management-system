@@ -131,6 +131,20 @@ const DEFAULT_CARDS = [
     enabled: false,
     col: 2, row: 2, colSpan: 1, rowSpan: 1,
   },
+  {
+    type: 'todo',
+    name: '我的待办',
+    description: '待审批的流程任务',
+    enabled: false,
+    col: 1, row: 2, colSpan: 1, rowSpan: 1,
+  },
+  {
+    type: 'done',
+    name: '我的已办',
+    description: '已处理的流程任务',
+    enabled: false,
+    col: 2, row: 2, colSpan: 1, rowSpan: 1,
+  },
 ]
 
 // ========== 状态 ==========

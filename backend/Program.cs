@@ -65,12 +65,19 @@ builder.Services.AddAuthentication(options =>
             },
             OnTokenValidated = async ctx =>
             {
-                var redis = ctx.HttpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>();
-                var db = redis.GetDatabase();
-                var tokenKey = $"token:{ctx.SecurityToken.UnsafeToString()}";
-                if (!await db.KeyExistsAsync(tokenKey))
+                try
                 {
-                    ctx.Fail("Token 已被撤销");
+                    var redis = ctx.HttpContext.RequestServices.GetRequiredService<IConnectionMultiplexer>();
+                    var db = redis.GetDatabase();
+                    var tokenKey = $"token:{ctx.SecurityToken.UnsafeToString()}";
+                    if (!await db.KeyExistsAsync(tokenKey))
+                    {
+                        ctx.Fail("Token 已被撤销");
+                    }
+                }
+                catch
+                {
+                    // Redis 不可用时降级：跳过 Token 有效性检查
                 }
             }
         };
@@ -581,6 +588,12 @@ using (var scope = app.Services.CreateScope())
     SeedData.EnsureWorkflowMenus(db);
 }
 
+// 开发环境异常页面
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
 // Swagger UI（所有环境可用，用于接口测试和第三方对接文档）
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -588,6 +601,9 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "管理系统 API v1");
     options.RoutePrefix = "swagger";
 });
+
+// 路由必须在 CORS 之前
+app.UseRouting();
 
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

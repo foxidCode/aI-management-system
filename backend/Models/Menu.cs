@@ -34,4 +34,15 @@ public class Menu
 
     [MaxLength(50)]
     public string? Component { get; set; }
+
+    /// <summary>
+    /// 打开方式: self=当前页, blank=新标签, iframe=内嵌
+    /// </summary>
+    [MaxLength(20)]
+    public string OpenType { get; set; } = "self";
+
+    /// <summary>
+    /// 是否在侧边栏显示
+    /// </summary>
+    public bool IsVisible { get; set; } = true;
 }

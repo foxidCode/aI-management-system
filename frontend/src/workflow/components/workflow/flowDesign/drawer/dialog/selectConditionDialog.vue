@@ -54,7 +54,7 @@ const matchDatabasetype = new Map([
   ["input", "String"], //"string"
   ["number", "Int"], //" "Int""
   ["select", "String"], //"Int" select
-  ["checkbox", "Array"], //checkbox 对应 VForm 是Array
+  ["checkbox", "Array"], // checkbox 对应 FormCreate 是 Array
   ["radio", "Int"],
   ["switch", "Int"],
   ["date", "DateTime"],

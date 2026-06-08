@@ -1,11 +1,22 @@
 <template>
   <div class="task-management">
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <el-tab-pane label="待审批" name="pending" />
-      <el-tab-pane label="已处理" name="history" />
-    </el-tabs>
+    <div class="top-section">
+      <el-tabs v-model="activeTab" @tab-change="handleTabChange" class="task-tabs">
+        <el-tab-pane label="待审批" name="pending" />
+        <el-tab-pane label="已处理" name="history" />
+      </el-tabs>
+      <el-input
+        v-model="searchKey"
+        placeholder="搜索流程名称、节点名称、申请人"
+        clearable
+        style="width: 300px"
+        @input="onSearchInput"
+      >
+        <template #prefix><el-icon><Search /></el-icon></template>
+      </el-input>
+    </div>
 
-    <el-table :data="list" v-loading="loading" stripe border style="width: 100%">
+    <el-table :data="filteredList" v-loading="loading" stripe border style="width: 100%">
       <el-table-column prop="nodeName" label="审批节点" width="130" show-overflow-tooltip />
       <el-table-column label="流程名称" min-width="150">
         <template #default="{ row }">{{ row.instance?.definitionName || '-' }}</template>
@@ -15,6 +26,13 @@
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" width="170">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+      </el-table-column>
+      <el-table-column v-if="activeTab === 'history'" label="状态" width="90">
+        <template #default="{ row }">
+          <el-tag :type="resultTag(row.actionType)" size="small">
+            {{ resultLabel(row.actionType) }}
+          </el-tag>
+        </template>
       </el-table-column>
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
@@ -32,7 +50,7 @@
     </el-table>
 
     <div class="pagination-wrapper">
-      <span class="total-text">共 {{ total }} 条</span>
+      <span class="total-text">共 {{ filteredList.length }} 条</span>
       <el-pagination
         v-model:current-page="page" v-model:page-size="pageSize"
         :page-sizes="[10, 20, 50]" :total="total"
@@ -62,19 +80,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMyTasks, getTaskHistory, approveTask, rejectTask, transferTask } from '@/workflow/api/workflow.js'
-import { getUsers } from '@/workflow/api/workflow.js'
+import { Search } from '@element-plus/icons-vue'
+import { getMyTasks, getTaskHistory, approveTask, rejectTask, transferTask, getUsers } from '@/workflow/api/workflow.js'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
 const activeTab = ref('pending')
+const searchKey = ref('')
 
 // 转办相关
 const transferVisible = ref(false)
@@ -82,6 +102,26 @@ const transferUserId = ref(null)
 const transferComment = ref('')
 const transferTaskId = ref(null)
 const userOptions = ref([])
+
+// 客户端搜索过滤
+const filteredList = computed(() => {
+  if (!searchKey.value) return list.value
+  const kw = searchKey.value.toLowerCase()
+  return list.value.filter(row => {
+    const defName = (row.instance?.definitionName || '').toLowerCase()
+    const nodeName = (row.nodeName || '').toLowerCase()
+    const applicant = (row.instance?.applicantName || row.assigneeName || '').toLowerCase()
+    return defName.includes(kw) || nodeName.includes(kw) || applicant.includes(kw)
+  })
+})
+
+let searchTimer = null
+const onSearchInput = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+  }, 300)
+}
 
 const fetchList = async () => {
   loading.value = true
@@ -95,7 +135,7 @@ const fetchList = async () => {
   } finally { loading.value = false }
 }
 
-const handleTabChange = () => { page.value = 1; fetchList() }
+const handleTabChange = () => { page.value = 1; searchKey.value = ''; fetchList() }
 
 const handleApprove = async (row) => {
   try {
@@ -120,7 +160,6 @@ const handleTransfer = async (row) => {
   transferVisible.value = true
   transferUserId.value = null
   transferComment.value = ''
-  // 加载用户列表
   try {
     const res = await getUsers({ page: 1, pageSize: 1000 })
     userOptions.value = res.data.data?.list || []
@@ -141,12 +180,22 @@ const doTransfer = async () => {
 
 const viewDetail = (id) => { router.push(`/dashboard/workflow/instance/${id}`) }
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
+const resultTag = (r) => ({ approve: 'success', reject: 'danger', transfer: 'warning', cancel: 'info' }[r] || 'info')
+const resultLabel = (r) => ({ approve: '通过', reject: '驳回', transfer: '已转办', cancel: '已取消' }[r] || '已处理')
 
-onMounted(fetchList)
+onMounted(() => {
+  if (route.query.tab === 'history') {
+    activeTab.value = 'history'
+  }
+  fetchList()
+})
 </script>
 
 <style scoped>
 .task-management { background: #fff; padding: 20px; border-radius: 4px; }
+.top-section { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.task-tabs { flex-shrink: 0; }
+.task-tabs :deep(.el-tabs__header) { margin-bottom: 0; }
 .pagination-wrapper { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
 .total-text { color: #666; font-size: 14px; }
 </style>

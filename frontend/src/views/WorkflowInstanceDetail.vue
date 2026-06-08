@@ -120,7 +120,7 @@ const userOptions = ref([])
 const formJsonStr = ref('{}')
 const formDataStr = ref('{}')
 const hasFormJson = computed(() => {
-  try { const o = JSON.parse(formJsonStr.value); return o && (o.widgetList || o.formConfig) } catch { return false }
+  try { const o = JSON.parse(formJsonStr.value); return o && (o.rule?.length > 0) } catch { return false }
 })
 
 // 流程图数据

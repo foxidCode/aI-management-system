@@ -3,9 +3,9 @@
     <div class="top-section">
       <el-input
         v-model="keyword"
-        placeholder="搜索流程名称、Key"
+        placeholder="搜索流程名称、编码、Key"
         clearable
-        style="width: 280px"
+        style="width: 300px"
         @keyup.enter="handleSearch"
         @clear="handleSearch"
       >
@@ -13,15 +13,14 @@
       </el-input>
       <el-button type="primary" @click="handleSearch"><el-icon><Search /></el-icon> 搜索</el-button>
       <div class="toolbar">
-        <el-button type="primary" @click="openDesigner"><el-icon><Plus /></el-icon> 新建流程</el-button>
+        <el-button type="primary" @click="openDesigner()"><el-icon><Plus /></el-icon> 新建流程</el-button>
         <el-button @click="fetchList"><el-icon><RefreshRight /></el-icon> 刷新</el-button>
       </div>
     </div>
 
     <el-table :data="list" v-loading="loading" stripe border style="width: 100%">
       <el-table-column prop="name" label="流程名称" min-width="150" show-overflow-tooltip />
-      <el-table-column prop="key" label="Key" width="140" show-overflow-tooltip />
-      <el-table-column prop="flowCode" label="流程编码" width="120" />
+      <el-table-column prop="flowCode" label="流程编码" width="140" show-overflow-tooltip />
       <el-table-column prop="version" label="版本" width="80" />
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
@@ -41,6 +40,7 @@
           <el-button link type="primary" size="small" @click="handleSubmitInstance(row)">发起</el-button>
         </template>
       </el-table-column>
+      <el-table-column prop="key" label="Key" width="150" show-overflow-tooltip />
     </el-table>
 
     <div class="pagination-wrapper">

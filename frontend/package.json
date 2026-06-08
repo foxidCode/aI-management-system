@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "@form-create/designer": "^3.5.0",
+    "@form-create/element-ui": "^3.3.1",
     "@microsoft/signalr": "^10.0.0",
     "axios": "^1.16.1",
     "echarts": "^6.1.0",

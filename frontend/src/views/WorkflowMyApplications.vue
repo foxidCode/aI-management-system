@@ -73,7 +73,7 @@ const fetchList = async () => {
 const handleSearch = () => { page.value = 1; fetchList() }
 const viewDetail = (id) => { router.push(`/dashboard/workflow/instance/${id}`) }
 
-const statusTag = (s) => ({ Running: '', Completed: 'success', Rejected: 'danger', Cancelled: 'info' }[s] || '')
+const statusTag = (s) => ({ Running: 'warning', Completed: 'success', Rejected: 'danger', Cancelled: 'info' }[s] || 'warning')
 const statusLabel = (s) => ({ Running: '进行中', Completed: '已完成', Rejected: '已驳回', Cancelled: '已取消' }[s] || s)
 const formatDate = (d) => d ? new Date(d).toLocaleString('zh-CN') : ''
 

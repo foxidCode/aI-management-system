@@ -28,17 +28,17 @@ export class NodeUtils {
    */
   static initNode() {
     const initNodesObj = {
-      name: "请假申请流程",
-      key: "BIZ_RTWHMN",
-      flowCode: "BIZ_QA",
+      name: "",
+      key: "",
+      flowCode: "",
       frmType: 1,
       frmValue:
-        '{"widgetList":[],"formConfig":{"modelName":"formData","refName":"vForm","rulesName":"rules","labelWidth":80,"labelPosition":"left","size":"","labelAlign":"label-left-align","cssCode":"","customClass":[],"functions":"","layoutType":"PC","jsonVersion":3,"onFormCreated":"","onFormMounted":"","onFormDataChange":""}}',
+        '{"rule":[],"option":{"form":{"labelWidth":"100px","labelPosition":"left","size":"default"},"submitBtn":false,"resetBtn":false}}',
       frmUrl: "",
       distinctType: 1,
       isActive: true,
       version: "1.0",
-      Remark: "",
+      remark: "",
       formData: null,
       nodes: [
         {

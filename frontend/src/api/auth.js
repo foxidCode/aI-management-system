@@ -129,6 +129,22 @@ export function getAllMenus() {
   return api.get('/menu/all')
 }
 
+export function createMenu(data) {
+  return api.post('/menu', data)
+}
+
+export function updateMenu(id, data) {
+  return api.put(`/menu/${id}`, data)
+}
+
+export function deleteMenu(id) {
+  return api.delete(`/menu/${id}`)
+}
+
+export function batchUpdateMenus(data) {
+  return api.put('/menu/batch', data)
+}
+
 // ========== 用户角色 API ==========
 
 export function getUserRoles(userId) {

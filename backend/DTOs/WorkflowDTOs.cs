@@ -139,6 +139,18 @@ public class WorkflowTaskResponse
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public int? ParentTaskId { get; set; }
+    /// <summary>关联的流程实例摘要</summary>
+    public TaskInstanceBrief? Instance { get; set; }
+}
+
+/// <summary>任务列表中使用的流程实例摘要</summary>
+public class TaskInstanceBrief
+{
+    public int Id { get; set; }
+    public int DefinitionId { get; set; }
+    public string? DefinitionName { get; set; }
+    public string? ApplicantName { get; set; }
+    public string Status { get; set; } = string.Empty;
 }
 
 public class WorkflowTaskListResponse

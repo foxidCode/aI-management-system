@@ -1,16 +1,15 @@
 <template>
   <div class="main-container">
-    <div id="designer-id" class="lf-form-container">
-      <v-form-designer ref="formDesign"></v-form-designer>
+    <div class="designer-container">
+      <fc-designer ref="designerRef" />
     </div>
-    <!-- <button @click="submitForm">ok</button> -->
   </div>
 </template>
 
 <script setup>
-import { ref, onUnmounted, onMounted, watch } from 'vue'
-import { isObjectChanged } from '@/workflow/utils/workflow/commonUtils'
+import { ref, onMounted } from 'vue'
 import { useWorkflowStore } from '@/workflow/store/modules/workflow'
+
 let store = useWorkflowStore()
 let props = defineProps({
   lfFormData: {
@@ -18,85 +17,93 @@ let props = defineProps({
     default: null,
   }
 });
-const formDesign = ref(null)
 
-let formField = {};
-//let formImportObj = "{\"widgetList\":[{\"key\":95565,\"type\":\"input\",\"icon\":\"text-field\",\"formItemFlag\":true,\"options\":{\"name\":\"input57337\",\"label\":\"部门\",\"labelAlign\":\"\",\"type\":\"text\",\"defaultValue\":\"\",\"placeholder\":\"\",\"columnWidth\":\"200px\",\"size\":\"\",\"labelWidth\":null,\"labelHidden\":false,\"readonly\":false,\"disabled\":false,\"hidden\":false,\"clearable\":true,\"showPassword\":false,\"required\":false,\"requiredHint\":\"\",\"validation\":\"\",\"validationHint\":\"\",\"customClass\":[],\"labelIconClass\":null,\"labelIconPosition\":\"rear\",\"labelTooltip\":null,\"minLength\":null,\"maxLength\":null,\"showWordLimit\":false,\"prefixIcon\":\"\",\"suffixIcon\":\"\",\"appendButton\":false,\"appendButtonDisabled\":false,\"buttonIcon\":\"custom-search\",\"onCreated\":\"\",\"onMounted\":\"\",\"onInput\":\"\",\"onChange\":\"\",\"onFocus\":\"\",\"onBlur\":\"\",\"onValidate\":\"\",\"onAppendButtonClick\":\"\",\"fieldTypeName\":\"input\",\"fieldType\":\"1\"},\"id\":\"input57337\"}],\"formConfig\":{\"modelName\":\"formData\",\"refName\":\"vForm\",\"rulesName\":\"rules\",\"labelWidth\":80,\"labelPosition\":\"left\",\"size\":\"\",\"labelAlign\":\"label-left-align\",\"cssCode\":\"\",\"customClass\":[],\"functions\":\"\",\"layoutType\":\"PC\",\"jsonVersion\":3,\"onFormCreated\":\"\",\"onFormMounted\":\"\",\"onFormDataChange\":\"\"}}";
-const observer = new MutationObserver(() => {
-  const returnFiled = formDesign.value.getFormFieldJson();
-  if (isObjectChanged(formField, returnFiled)) {
-    formField = returnFiled;
-    store.setLowCodeFormField(formField);
-  }
-});
+const designerRef = ref(null)
+
+function getRule() {
+  return designerRef.value?.getRule() || []
+}
+
+function getOption() {
+  return designerRef.value?.getOption() || {}
+}
 
 onMounted(() => {
-  const targetNode = document.querySelector('#designer-id');
-  const config = { childList: true, subtree: true };
-  observer.observe(targetNode, config);
-});
-
-watch(() => [props.lfFormData, formDesign.value],
-  ([val, designer]) => {
-    if (!val || !designer) {
-      return;
-    }
+  if (props.lfFormData) {
     try {
-      designer.clearDesigner();
-      designer.designer.loadFormJson(JSON.parse(val));
-    } catch (error) {
-      console.error('lfFormData parse error', error);
+      const parsed = JSON.parse(props.lfFormData)
+      if (parsed.rule && parsed.rule.length > 0) {
+        designerRef.value?.setRule(parsed.rule)
+      }
+      if (parsed.option) {
+        designerRef.value?.setOption(parsed.option)
+      }
+      // 同步字段到 store
+      syncToStore()
+    } catch {
+      console.warn('表单数据解析失败，使用空白设计器')
     }
-  }, { immediate: true })
-
-onUnmounted(() => {
-  observer.disconnect();
-});
-/**
- * 提交表单
- */
-const getData = () => {
-  let exportData = formDesign.value.getFormJson();
-  //console.log('exportData=========', JSON.stringify(exportData))
-  return new Promise((resolve, reject) => {
-    resolve({ formData: exportData })
-    reject(new Error('获取表单数据失败'));
-  })
-}
-
-/*
-获取字段
-*/
-const getFieldList = () => {
-  let exportField = formDesign.value.getFormFieldJson();
-  return new Promise((resolve, reject) => {
-    resolve({ formData: exportField.formFields })
-    reject(new Error('获取表单获取字段失败'));
-  })
-}
-defineExpose({
-  getData,
-  getFieldList
+  }
 })
+
+function syncToStore() {
+  try {
+    const rule = getRule()
+    const fields = rule.map(r => ({
+      fieldId: r.field,
+      name: r.field,
+      title: r.title || r.field,
+      type: r.type
+    }))
+    store.setLowCodeFormField({ formFields: fields })
+  } catch { /* 忽略 */ }
+}
+
+const getData = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      // 先同步字段到 store
+      syncToStore()
+      const data = {
+        rule: getRule(),
+        option: getOption()
+      }
+      resolve({ formData: data })
+    } catch (err) {
+      reject(new Error('获取表单数据失败'))
+    }
+  })
+}
+
+const getFieldList = () => {
+  const rule = getRule()
+  const fields = rule.map(r => ({
+    fieldId: r.field,
+    name: r.field,
+    title: r.title || r.field,
+    type: r.type
+  }))
+  return Promise.resolve({ formData: fields })
+}
+
+defineExpose({ getData, getFieldList })
 </script>
 
 <style scoped>
-body {
-  margin: 0;
-  /* 如果页面出现垂直滚动条，则加入此行CSS以消除之 */
-}
-
 .main-container {
-  margin-left: 0px !important;
+  margin-left: 0 !important;
+  height: calc(100vh - 65px);
+  display: flex;
+  flex-direction: column;
 }
 
-.lf-form-container {
-  background: white !important;
-  padding: 0px;
-  width: 95%;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  margin: auto;
+.designer-container {
+  flex: 1;
+  background: #fff;
+  overflow: hidden;
+}
+
+.designer-container :deep(.fc-designer) {
+  height: 100%;
 }
 </style>

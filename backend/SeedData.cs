@@ -23,6 +23,7 @@ public static class SeedData
             new() { Name = "材料管理", Code = "material:manage", Description = "新增、编辑、删除材料" },
             new() { Name = "入库单查看", Code = "inbound:view", Description = "查看入库单列表和详情" },
             new() { Name = "入库单管理", Code = "inbound:manage", Description = "新增、编辑、删除入库单" },
+            new() { Name = "菜单管理", Code = "menu:manage", Description = "管理后台侧边栏菜单结构" },
         };
         db.Permissions.AddRange(permissions);
         db.SaveChanges();
@@ -65,7 +66,7 @@ public static class SeedData
             new() { Name = "系统配置", Path = "/dashboard/profile", Icon = "Setting", ParentId = null, SortOrder = 1, PermissionCode = "system:config", Component = "UserProfile" },
             new() { Name = "用户列表", Path = "/dashboard/users", Icon = "List", ParentId = null, SortOrder = 2, PermissionCode = "user:view", Component = "UserManagement" },
             new() { Name = "角色管理", Path = "/dashboard/roles", Icon = "Lock", ParentId = null, SortOrder = 3, PermissionCode = "role:manage", Component = "RoleManagement" },
-            new() { Name = "材料字典", Path = "/dashboard/materials", Icon = "Box", ParentId = null, SortOrder = 4, PermissionCode = "material:view", Component = "MaterialDictionary" },
+            new() { Name = "材料字典", Path = "/dashboard/materials", Icon = "Collection", ParentId = null, SortOrder = 4, PermissionCode = "material:view", Component = "MaterialDictionary" },
             new() { Name = "入库单", Path = "/dashboard/inbound", Icon = "Document", ParentId = null, SortOrder = 5, PermissionCode = "inbound:view", Component = "InboundOrder" },
         };
 
@@ -312,7 +313,7 @@ public static class SeedData
         {
             new() { Name = "流程定义", Path = "/dashboard/workflow/definitions", Icon = "Document", ParentId = wfParent.Id, SortOrder = 1, PermissionCode = "workflow:define", MenuType = "menu", Component = "WorkflowDefinitionList" },
             new() { Name = "我的申请", Path = "/dashboard/workflow/my-applications", Icon = "Edit", ParentId = wfParent.Id, SortOrder = 2, PermissionCode = "workflow:submit", MenuType = "menu", Component = "WorkflowMyApplications" },
-            new() { Name = "待办审批", Path = "/dashboard/workflow/my-tasks", Icon = "Checked", ParentId = wfParent.Id, SortOrder = 3, PermissionCode = "workflow:approve", MenuType = "menu", Component = "WorkflowTaskList" },
+            new() { Name = "待办审批", Path = "/dashboard/workflow/my-tasks", Icon = "Select", ParentId = wfParent.Id, SortOrder = 3, PermissionCode = "workflow:approve", MenuType = "menu", Component = "WorkflowTaskList" },
         };
 
         foreach (var m in childMenus)
@@ -370,7 +371,7 @@ public static class SeedData
 
         var newMenus = new List<Menu>
         {
-            new() { Name = "材料字典", Path = "/dashboard/materials", Icon = "Box", ParentId = null, SortOrder = 4, PermissionCode = "material:view", Component = "MaterialDictionary" },
+            new() { Name = "材料字典", Path = "/dashboard/materials", Icon = "Collection", ParentId = null, SortOrder = 4, PermissionCode = "material:view", Component = "MaterialDictionary" },
             new() { Name = "入库单", Path = "/dashboard/inbound", Icon = "Document", ParentId = null, SortOrder = 5, PermissionCode = "inbound:view", Component = "InboundOrder" },
             new() { Name = "SSO链接管理", Path = "/dashboard/sso", Icon = "Link", ParentId = null, SortOrder = 6, PermissionCode = "sso:manage", Component = "SsoManagement" },
         };
@@ -425,7 +426,7 @@ public static class SeedData
             {
                 Name = "附件管理",
                 Path = "/dashboard/attachments",
-                Icon = "Paperclip",
+                Icon = "Files",
                 ParentId = sysParent.Id,
                 SortOrder = 2,
                 PermissionCode = "attachment:manage",
@@ -441,7 +442,7 @@ public static class SeedData
             {
                 Name = "数据库管理",
                 Path = "/dashboard/database",
-                Icon = "Coin",
+                Icon = "Money",
                 ParentId = sysParent.Id,
                 SortOrder = 3,
                 PermissionCode = "database:manage",
@@ -473,7 +474,7 @@ public static class SeedData
             {
                 Name = "集成平台",
                 Path = "/dashboard/integration",
-                Icon = "Connection",
+                Icon = "Share",
                 ParentId = sysParent.Id,
                 SortOrder = 5,
                 PermissionCode = "integration:manage",
@@ -495,6 +496,22 @@ public static class SeedData
                 PermissionCode = "integration:manage",
                 MenuType = "menu",
                 Component = "ScheduleManagement",
+            });
+        }
+
+        // 菜单管理（子菜单，在系统管理下，仅admin可见）
+        if (!existingPaths.Contains("/dashboard/menus"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "菜单管理",
+                Path = "/dashboard/menus",
+                Icon = "Menu",
+                ParentId = sysParent.Id,
+                SortOrder = 7,
+                PermissionCode = "menu:manage",
+                MenuType = "menu",
+                Component = "MenuManagement",
             });
         }
 

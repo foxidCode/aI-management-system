@@ -184,8 +184,16 @@ public class AuthService
 
     public async Task<bool> ValidateTokenAsync(string token)
     {
-        var db = _redis.GetDatabase();
-        return await db.KeyExistsAsync($"token:{token}");
+        try
+        {
+            var db = _redis.GetDatabase();
+            return await db.KeyExistsAsync($"token:{token}");
+        }
+        catch
+        {
+            // Redis 不可用时降级：不主动撤销 Token
+            return true;
+        }
     }
 
     internal async Task<(string token, List<string> permissions, List<int> roleIds)> GenerateJwtTokenAsync(User user)
@@ -274,8 +282,16 @@ public class AuthService
 
     internal async Task CacheTokenAsync(int userId, string token)
     {
-        var db = _redis.GetDatabase();
-        await db.StringSetAsync($"token:{token}", userId.ToString(), TimeSpan.FromHours(2));
+        try
+        {
+            var db = _redis.GetDatabase();
+            await db.StringSetAsync($"token:{token}", userId.ToString(), TimeSpan.FromHours(2));
+        }
+        catch (Exception ex)
+        {
+            // Redis 不可用时降级：允许登录，跳过 Token 缓存（重启或失效 Token 无法撤销）
+            Console.WriteLine($"[Warn] Redis 不可用，Token 缓存跳过: {ex.Message}");
+        }
     }
 
     // ========== 忘记密码 ==========

@@ -12,38 +12,9 @@
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409EFF"
-        router
         @select="handleMenuSelect"
       >
-        <template v-for="menu in menuList" :key="menu.id">
-          <!-- 有子菜单 -->
-          <el-sub-menu
-            v-if="menu.children && menu.children.length > 0"
-            :index="String(menu.id)"
-          >
-            <template #title>
-              <el-icon v-if="menu.icon"><component :is="menu.icon" /></el-icon>
-              <span>{{ menu.name }}</span>
-            </template>
-            <el-menu-item
-              v-for="child in menu.children"
-              :key="child.id"
-              :index="child.path"
-            >
-              <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
-              <span>{{ child.name }}</span>
-            </el-menu-item>
-          </el-sub-menu>
-
-          <!-- 无子菜单的叶子节点（必须有 path） -->
-          <el-menu-item
-            v-else-if="menu.path"
-            :index="menu.path"
-          >
-            <el-icon v-if="menu.icon"><component :is="menu.icon" /></el-icon>
-            <span>{{ menu.name }}</span>
-          </el-menu-item>
-        </template>
+        <MenuItem v-for="menu in menuList" :key="menu.id" :menu="menu" />
       </el-menu>
     </el-aside>
 
@@ -98,9 +69,8 @@
         </div>
         <div class="topbar-right">
           <el-tooltip content="查看系统帮助文档" placement="bottom">
-            <el-button type="primary" link size="small" @click="openHelp">
+            <el-button link size="small" @click="openHelp">
               <el-icon :size="18"><Notebook /></el-icon>
-              <span style="margin-left:4px">帮助</span>
             </el-button>
           </el-tooltip>
           <!-- 通知铃铛 -->
@@ -138,7 +108,17 @@
 
       <!-- 内容区 -->
       <el-main class="main-content">
-        <router-view />
+        <!-- iframe 内嵌模式 -->
+        <div v-if="iframeUrl" class="iframe-container">
+          <div class="iframe-toolbar">
+            <span class="iframe-title">{{ iframeTitle || iframeUrl }}</span>
+            <el-button size="small" @click="closeIframe">
+              <el-icon><Close /></el-icon> 关闭
+            </el-button>
+          </div>
+          <iframe :src="iframeUrl" class="iframe-view" frameborder="0" />
+        </div>
+        <router-view v-else />
       </el-main>
     </el-container>
   </el-container>
@@ -148,8 +128,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Search, Bell } from '@element-plus/icons-vue'
+import { Search, Bell, Close } from '@element-plus/icons-vue'
 import { getUserMenus } from '../api/auth'
+import MenuItem from './MenuItem.vue'
 import { useSignalR } from '../composables/useSignalR.js'
 
 const router = useRouter()
@@ -168,12 +149,53 @@ function formatNotifyTime(ts) {
   return d.toLocaleTimeString('zh-CN')
 }
 
+// 路径→菜单映射（用于快速查找 openType）
+const pathMenuMap = computed(() => {
+  const map = {}
+  function walk(nodes) {
+    for (const m of nodes) {
+      if (m.path) map[m.path] = m
+      if (m.children?.length) walk(m.children)
+    }
+  }
+  walk(menuList.value)
+  return map
+})
+
+// iframe 状态
+const iframeUrl = ref('')
+const iframeTitle = ref('')
+
 function handleMenuSelect(index) {
-  // 外部链接（http/https）在新标签页打开，同时阻止vue-router改变当前页URL
+  // 查找菜单获取 openType
+  const menu = pathMenuMap.value[index]
+
+  if (menu?.openType === 'iframe') {
+    iframeUrl.value = index
+    iframeTitle.value = menu?.name || ''
+    return
+  }
+
+  if (menu?.openType === 'blank') {
+    window.open(index, '_blank')
+    return
+  }
+
+  // 外部链接（http/https），默认新标签打开
   if (index && (index.startsWith('http://') || index.startsWith('https://'))) {
     window.open(index, '_blank')
-    router.replace(route.path)
+    return
   }
+
+  // 内部路径正常导航
+  if (index) {
+    router.push(index)
+  }
+}
+
+function closeIframe() {
+  iframeUrl.value = ''
+  iframeTitle.value = ''
 }
 
 const menuList = ref([])
@@ -408,4 +430,30 @@ function goToMenu(item) {
 .notify-body { flex: 1; min-width: 0; }
 .notify-msg { margin: 0; font-size: 13px; color: #303133; line-height: 1.5; }
 .notify-time { font-size: 11px; color: #909399; }
+
+/* iframe 内嵌 */
+.iframe-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 76px);
+}
+.iframe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+  flex-shrink: 0;
+}
+.iframe-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+.iframe-view {
+  flex: 1;
+  border: none;
+  width: 100%;
+}
 </style>

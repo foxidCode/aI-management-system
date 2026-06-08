@@ -424,3 +424,6 @@ Redis 非必须。未安装时 Token 缓存 / 在线状态 / SSO 功能不可用
 
 **Q: 如何添加自定义计划任务处理器？**
 实现 `IScheduledTaskHandler` 接口，放置于 `ScheduledTaskHandlers/` 目录，系统自动发现。
+
+**Q: jenkins地址？**
+http://localhost:8090/。

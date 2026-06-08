@@ -227,10 +227,11 @@ public class PermissionService
             .Distinct()
             .ToListAsync();
 
-        // 数据库管理仅admin账号可见（通过 role:manage 判断是否为admin）
+        // 数据库管理 + 菜单管理仅admin账号可见（通过 role:manage 判断是否为admin）
         if (permissionCodes.Contains("role:manage"))
         {
             permissionCodes.Add("database:manage");
+            permissionCodes.Add("menu:manage");
         }
 
         // 获取所有菜单
@@ -238,9 +239,9 @@ public class PermissionService
             .OrderBy(m => m.SortOrder)
             .ToListAsync();
 
-        // 过滤用户有权限的菜单（没有 PermissionCode 的菜单所有人可见）
+        // 过滤用户有权限的菜单（没有 PermissionCode 的菜单所有人可见 + 必须可见）
         var accessibleMenus = allMenus
-            .Where(m => string.IsNullOrEmpty(m.PermissionCode) || permissionCodes.Contains(m.PermissionCode))
+            .Where(m => m.IsVisible && (string.IsNullOrEmpty(m.PermissionCode) || permissionCodes.Contains(m.PermissionCode)))
             .ToList();
 
         // 构建菜单树
@@ -260,6 +261,7 @@ public class PermissionService
     {
         return menus
             .Where(m => m.ParentId == parentId)
+            .OrderBy(m => m.SortOrder)
             .Select(m => new MenuResponse
             {
                 Id = m.Id,
@@ -270,9 +272,101 @@ public class PermissionService
                 SortOrder = m.SortOrder,
                 PermissionCode = m.PermissionCode,
                 Component = m.Component,
+                OpenType = m.OpenType,
+                IsVisible = m.IsVisible,
                 Children = BuildMenuTree(menus, m.Id)
             })
             .ToList();
+    }
+
+    // ========== 菜单 CRUD ==========
+
+    public async Task<MenuResponse> CreateMenuAsync(CreateMenuRequest req)
+    {
+        var menu = new Menu
+        {
+            Name = req.Name,
+            Path = req.Path,
+            Icon = req.Icon,
+            ParentId = req.ParentId,
+            SortOrder = req.SortOrder,
+            PermissionCode = req.PermissionCode,
+            Component = req.Component,
+            OpenType = req.OpenType ?? "self",
+            IsVisible = req.IsVisible,
+        };
+        _db.Menus.Add(menu);
+        await _db.SaveChangesAsync();
+        return await GetMenuResponseByIdAsync(menu.Id);
+    }
+
+    public async Task<MenuResponse?> UpdateMenuAsync(int id, UpdateMenuRequest req)
+    {
+        var menu = await _db.Menus.FindAsync(id);
+        if (menu == null) return null;
+
+        menu.Name = req.Name;
+        menu.Path = req.Path;
+        menu.Icon = req.Icon;
+        menu.ParentId = req.ParentId;
+        menu.SortOrder = req.SortOrder;
+        menu.PermissionCode = req.PermissionCode;
+        menu.Component = req.Component;
+        menu.OpenType = req.OpenType ?? "self";
+        menu.IsVisible = req.IsVisible;
+
+        await _db.SaveChangesAsync();
+        return await GetMenuResponseByIdAsync(id);
+    }
+
+    public async Task<bool> DeleteMenuAsync(int id)
+    {
+        var menu = await _db.Menus.FindAsync(id);
+        if (menu == null) return false;
+
+        // 递归删除子菜单
+        var children = await _db.Menus.Where(m => m.ParentId == id).ToListAsync();
+        foreach (var child in children)
+            await DeleteMenuAsync(child.Id);
+
+        _db.Menus.Remove(menu);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task BatchUpdateMenusAsync(BatchUpdateMenusRequest req)
+    {
+        var ids = req.Menus.Select(m => m.Id).ToHashSet();
+        var menus = await _db.Menus.Where(m => ids.Contains(m.Id)).ToListAsync();
+        var map = menus.ToDictionary(m => m.Id);
+
+        foreach (var item in req.Menus)
+        {
+            if (map.TryGetValue(item.Id, out var menu))
+            {
+                menu.ParentId = item.ParentId;
+                menu.SortOrder = item.SortOrder;
+            }
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task<MenuResponse> GetMenuResponseByIdAsync(int id)
+    {
+        var menu = await _db.Menus.FindAsync(id);
+        return new MenuResponse
+        {
+            Id = menu!.Id,
+            Name = menu.Name,
+            Path = menu.Path,
+            Icon = menu.Icon,
+            ParentId = menu.ParentId,
+            SortOrder = menu.SortOrder,
+            PermissionCode = menu.PermissionCode,
+            Component = menu.Component,
+            OpenType = menu.OpenType,
+            IsVisible = menu.IsVisible,
+        };
     }
 
     // ========== 用户角色分配 ==========

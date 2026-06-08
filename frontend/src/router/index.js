@@ -36,6 +36,7 @@ const routes = [
       { path: 'database', component: () => import('../views/DatabaseManagement.vue') },
       { path: 'integration', component: () => import('../views/IntegrationManagement.vue') },
       { path: 'schedule', component: () => import('../views/ScheduleManagement.vue') },
+      { path: 'menus', component: () => import('../views/MenuManagement.vue') },
       { path: 'workflow/definitions', component: () => import('../views/WorkflowDefinitionList.vue') },
       { path: 'workflow/my-applications', component: () => import('../views/WorkflowMyApplications.vue') },
       { path: 'workflow/my-tasks', component: () => import('../views/WorkflowTaskList.vue') },

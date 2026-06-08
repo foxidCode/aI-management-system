@@ -10,13 +10,13 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['@/lib/vform/designer.umd.js'],
+    include: ['@form-create/element-ui', '@form-create/designer'],
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('designer.umd')) return 'vform'
+          if (id.includes('@form-create/designer')) return 'fc-designer'
         },
       },
     },

@@ -60,7 +60,76 @@ public class MenuResponse
     public int SortOrder { get; set; }
     public string? PermissionCode { get; set; }
     public string? Component { get; set; }
+    public string? OpenType { get; set; } = "self";
+    public bool IsVisible { get; set; } = true;
     public List<MenuResponse> Children { get; set; } = new();
+}
+
+// ========== 菜单管理 DTO ==========
+public class CreateMenuRequest
+{
+    [Required(ErrorMessage = "请输入菜单名称"), MaxLength(50)]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string? Path { get; set; }
+
+    [MaxLength(50)]
+    public string? Icon { get; set; }
+
+    public int? ParentId { get; set; }
+
+    public int SortOrder { get; set; }
+
+    [MaxLength(100)]
+    public string? PermissionCode { get; set; }
+
+    [MaxLength(50)]
+    public string? Component { get; set; }
+
+    [MaxLength(20)]
+    public string? OpenType { get; set; } = "self";
+
+    public bool IsVisible { get; set; } = true;
+}
+
+public class UpdateMenuRequest
+{
+    [Required(ErrorMessage = "请输入菜单名称"), MaxLength(50)]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string? Path { get; set; }
+
+    [MaxLength(50)]
+    public string? Icon { get; set; }
+
+    public int? ParentId { get; set; }
+
+    public int SortOrder { get; set; }
+
+    [MaxLength(100)]
+    public string? PermissionCode { get; set; }
+
+    [MaxLength(50)]
+    public string? Component { get; set; }
+
+    [MaxLength(20)]
+    public string? OpenType { get; set; } = "self";
+
+    public bool IsVisible { get; set; } = true;
+}
+
+public class BatchUpdateMenusRequest
+{
+    public List<MenuSortItem> Menus { get; set; } = new();
+}
+
+public class MenuSortItem
+{
+    public int Id { get; set; }
+    public int? ParentId { get; set; }
+    public int SortOrder { get; set; }
 }
 
 // ========== 用户分配角色 DTO ==========

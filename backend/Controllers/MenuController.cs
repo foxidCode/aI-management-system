@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using backend.DTOs;
 using backend.Services;
 
 namespace backend.Controllers;
@@ -37,5 +38,60 @@ public class MenuController : ControllerBase
         if (!IsAdmin()) return Forbid();
         var menus = await _permService.GetAllMenusAsync();
         return Ok(new { success = true, data = menus });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateMenu([FromBody] CreateMenuRequest req)
+    {
+        if (!IsAdmin()) return Forbid();
+        try
+        {
+            var menu = await _permService.CreateMenuAsync(req);
+            return Ok(new { success = true, data = menu });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateMenu(int id, [FromBody] UpdateMenuRequest req)
+    {
+        if (!IsAdmin()) return Forbid();
+        try
+        {
+            var menu = await _permService.UpdateMenuAsync(id, req);
+            if (menu == null) return NotFound(new { success = false, message = "菜单不存在" });
+            return Ok(new { success = true, data = menu });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteMenu(int id)
+    {
+        if (!IsAdmin()) return Forbid();
+        var ok = await _permService.DeleteMenuAsync(id);
+        if (!ok) return NotFound(new { success = false, message = "菜单不存在" });
+        return Ok(new { success = true, message = "已删除" });
+    }
+
+    [HttpPut("batch")]
+    public async Task<IActionResult> BatchUpdateMenus([FromBody] BatchUpdateMenusRequest req)
+    {
+        if (!IsAdmin()) return Forbid();
+        try
+        {
+            await _permService.BatchUpdateMenusAsync(req);
+            return Ok(new { success = true, message = "排序已更新" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
     }
 }
