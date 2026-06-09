@@ -26,23 +26,9 @@
     >
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="name" label="角色名称" width="150" />
-      <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+      <el-table-column prop="description" label="描述" min-width="300" show-overflow-tooltip />
       <el-table-column label="创建时间" width="170">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
-      </el-table-column>
-      <el-table-column label="关联权限" min-width="300" show-overflow-tooltip>
-        <template #default="{ row }">
-          <el-tag
-            v-for="pid in row.permissionIds"
-            :key="pid"
-            size="small"
-            type="info"
-            style="margin-right: 4px"
-          >
-            {{ getPermissionName(pid) }}
-          </el-tag>
-          <span v-if="row.permissionIds.length === 0" style="color: #999">无权限</span>
-        </template>
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
@@ -78,7 +64,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑角色' : '新增角色'"
-      width="720px"
+      width="480px"
       :close-on-click-modal="false"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
@@ -86,20 +72,7 @@
           <el-input v-model="form.name" placeholder="请输入角色名称" />
         </el-form-item>
         <el-form-item label="角色描述">
-          <el-input v-model="form.description" placeholder="请输入角色描述" />
-        </el-form-item>
-        <el-form-item label="分配权限">
-          <el-tree
-            :key="treeKey"
-            ref="treeRef"
-            :data="permissionTree"
-            show-checkbox
-            node-key="id"
-            :default-checked-keys="defaultChecked"
-            :props="{ children: 'children', label: 'label' }"
-            default-expand-all
-            class="perm-tree"
-          />
+          <el-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入角色描述" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -115,20 +88,15 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getRoles, createRole, updateRole, deleteRole, getPermissions, getPermissionTree } from '../api/auth'
+import { getRoles, createRole, updateRole, deleteRole } from '../api/auth'
 
 const roles = ref([])
-const allPermissions = ref([])
-const permissionTree = ref([])
-const treeRef = ref(null)
 const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editingId = ref(null)
 const formRef = ref(null)
 const submitLoading = ref(false)
-const treeKey = ref(0)
-const defaultChecked = ref([])
 
 const keyword = ref('')
 const page = ref(1)
@@ -154,18 +122,11 @@ const rules = {
   name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 }
 
-function getPermissionName(pid) {
-  const perm = allPermissions.value.find(p => p.id === pid)
-  return perm ? perm.name : `ID:${pid}`
-}
-
 function openCreateDialog() {
   isEdit.value = false
   editingId.value = null
   form.name = ''
   form.description = ''
-  defaultChecked.value = []
-  treeKey.value++
   formRef.value?.clearValidate()
   dialogVisible.value = true
 }
@@ -175,25 +136,17 @@ function openEditDialog(row) {
   editingId.value = row.id
   form.name = row.name
   form.description = row.description || ''
-  defaultChecked.value = row.permissionIds.map(String)
-  treeKey.value++
   dialogVisible.value = true
 }
 
 async function fetchRoles() {
   loading.value = true
   try {
-    const [rolesRes, permsRes, treeRes] = await Promise.all([
-      getRoles({ keyword: keyword.value || undefined, page: page.value, pageSize: pageSize.value }),
-      getPermissions(),
-      getPermissionTree(),
-    ])
-    if (rolesRes.data.success) {
-      roles.value = rolesRes.data.data
-      total.value = rolesRes.data.total
+    const res = await getRoles({ keyword: keyword.value || undefined, page: page.value, pageSize: pageSize.value })
+    if (res.data.success) {
+      roles.value = res.data.data
+      total.value = res.data.total
     }
-    if (permsRes.data.success) allPermissions.value = permsRes.data.data
-    if (treeRes.data.success) permissionTree.value = treeRes.data.data
   } catch {
     ElMessage.error('获取数据失败')
   } finally {
@@ -205,25 +158,22 @@ async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  const checkedKeys = treeRef.value?.getCheckedKeys() || []
-  const permIds = checkedKeys
-    .filter(k => !String(k).startsWith('menu_'))
-    .map(Number)
-
   submitLoading.value = true
   try {
     if (isEdit.value) {
+      // 编辑时保留原有权限，仅更新名称和描述
+      const row = roles.value.find(r => r.id === editingId.value)
       await updateRole(editingId.value, {
         name: form.name,
         description: form.description || null,
-        permissionIds: permIds,
+        permissionIds: row?.permissionIds || [],
       })
       ElMessage.success('角色更新成功')
     } else {
       await createRole({
         name: form.name,
         description: form.description || null,
-        permissionIds: permIds,
+        permissionIds: [],
       })
       ElMessage.success('角色创建成功')
     }
@@ -280,18 +230,5 @@ onMounted(fetchRoles)
 .total-info {
   font-size: 14px;
   color: #666;
-}
-.perm-tree {
-  max-height: 400px;
-  overflow-y: auto;
-  width: 100%;
-}
-.perm-tree :deep(.el-tree-node__content) {
-  height: 32px;
-}
-.perm-tree :deep(.el-tree-node__label) {
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: visible;
 }
 </style>

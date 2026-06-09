@@ -92,6 +92,7 @@
         <template #default="{ row }">
           <el-button size="small" type="primary" @click="openEditDialog(row)">修改</el-button>
           <el-button v-if="canAssignRole" size="small" type="warning" @click="openRoleDialog(row)">分配角色</el-button>
+          <el-button v-if="canAssignRole" size="small" type="success" @click="openDirectPermDialog(row)">直接授权</el-button>
           <el-button
             v-if="row.username !== 'admin'"
             size="small"
@@ -252,6 +253,60 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 直接授权弹窗 -->
+    <el-dialog
+      v-model="directPermDialogVisible"
+      title="直接授权"
+      width="640px"
+      :close-on-click-modal="false"
+    >
+      <p style="margin-bottom: 12px; color: #666;">
+        为用户 <strong>{{ directPermUser.username }}</strong> 直接授予权限（跳过角色，与角色权限合并生效）
+      </p>
+      <div class="perm-toolbar">
+        <el-input
+          v-model="permSearchKeyword"
+          placeholder="搜索权限名称或编码"
+          clearable
+          style="flex: 1"
+          @input="filterPermOptions"
+          @clear="filterPermOptions"
+        >
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <el-button size="small" text type="primary" @click="selectAllPerms">全选</el-button>
+        <el-button size="small" text type="warning" @click="clearPermSelection">清空</el-button>
+      </div>
+
+      <el-table
+        ref="permTableRef"
+        :data="filteredPermOptions"
+        row-key="id"
+        max-height="400"
+        stripe
+        v-loading="permLoading"
+        @selection-change="handlePermSelectionChange"
+      >
+        <el-table-column type="selection" width="50" reserve-selection />
+        <el-table-column prop="name" label="权限名称" width="160" />
+        <el-table-column prop="code" label="权限编码" width="180" />
+        <el-table-column prop="description" label="描述" show-overflow-tooltip />
+      </el-table>
+
+      <el-empty
+        v-if="!permLoading && filteredPermOptions.length === 0"
+        description="暂无可用权限"
+        :image-size="80"
+      />
+
+      <template #footer>
+        <el-button @click="directPermDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="directPermSubmitLoading" @click="handleDirectPermSubmit">
+          {{ directPermSubmitLoading ? '保存中...' : '保存' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -270,6 +325,10 @@ import {
   getRoles,
   getUserRoles,
   assignUserRoles,
+  getPermissions,
+  getUserDirectPermissions,
+  grantUserPermission,
+  revokeUserPermission,
 } from '../api/auth'
 
 const users = ref([])
@@ -642,6 +701,121 @@ async function handleRoleSubmit() {
   }
 }
 
+// ========== 直接授权 ==========
+
+const directPermDialogVisible = ref(false)
+const directPermSubmitLoading = ref(false)
+const permLoading = ref(false)
+const selectedPermIds = ref([])
+const allPermOptions = ref([])
+const filteredPermOptions = ref([])
+const permSearchKeyword = ref('')
+const directPermUser = reactive({ id: 0, username: '' })
+const permTableRef = ref(null)
+const isPermSyncing = ref(false)
+
+function filterPermOptions() {
+  if (!permSearchKeyword.value) {
+    filteredPermOptions.value = allPermOptions.value
+  } else {
+    const kw = permSearchKeyword.value.toLowerCase()
+    filteredPermOptions.value = allPermOptions.value.filter(
+      p => p.name.toLowerCase().includes(kw) || p.code.toLowerCase().includes(kw)
+    )
+  }
+}
+
+function handlePermSelectionChange(selection) {
+  if (isPermSyncing.value) return
+  const pageIds = new Set(filteredPermOptions.value.map(p => p.id))
+  const otherSelected = selectedPermIds.value.filter(id => !pageIds.has(id))
+  selectedPermIds.value = [...otherSelected, ...selection.map(p => p.id)]
+}
+
+function selectAllPerms() {
+  isPermSyncing.value = true
+  const pageIds = new Set(filteredPermOptions.value.map(p => p.id))
+  const otherSelected = selectedPermIds.value.filter(id => !pageIds.has(id))
+  selectedPermIds.value = [...otherSelected, ...filteredPermOptions.value.map(p => p.id)]
+  filteredPermOptions.value.forEach(p => {
+    permTableRef.value?.toggleRowSelection(p, true)
+  })
+  nextTick(() => { isPermSyncing.value = false })
+}
+
+function clearPermSelection() {
+  selectedPermIds.value = []
+  permTableRef.value?.clearSelection()
+}
+
+async function openDirectPermDialog(row) {
+  directPermUser.id = row.id
+  directPermUser.username = row.username
+  selectedPermIds.value = []
+  permSearchKeyword.value = ''
+
+  permLoading.value = true
+  directPermDialogVisible.value = true
+
+  try {
+    const [permsRes, directRes] = await Promise.all([
+      getPermissions(),
+      getUserDirectPermissions(row.id),
+    ])
+    if (permsRes.data.success) {
+      allPermOptions.value = permsRes.data.data || []
+      filteredPermOptions.value = allPermOptions.value
+    }
+    if (directRes.data.success) {
+      selectedPermIds.value = directRes.data.data || []
+    }
+    await nextTick()
+    syncPermTableSelection()
+  } catch {
+    ElMessage.error('获取权限数据失败')
+  } finally {
+    permLoading.value = false
+  }
+}
+
+function syncPermTableSelection() {
+  if (!permTableRef.value) return
+  isPermSyncing.value = true
+  permTableRef.value.clearSelection()
+  filteredPermOptions.value.forEach(p => {
+    if (selectedPermIds.value.includes(p.id)) {
+      permTableRef.value.toggleRowSelection(p, true)
+    }
+  })
+  nextTick(() => { isPermSyncing.value = false })
+}
+
+async function handleDirectPermSubmit() {
+  directPermSubmitLoading.value = true
+  try {
+    // 获取当前已有的直接权限
+    const currentRes = await getUserDirectPermissions(directPermUser.id)
+    const currentIds = currentRes.data.success ? (currentRes.data.data || []) : []
+
+    const toGrant = selectedPermIds.value.filter(id => !currentIds.includes(id))
+    const toRevoke = currentIds.filter(id => !selectedPermIds.value.includes(id))
+
+    if (toGrant.length > 0) {
+      await grantUserPermission({ userId: directPermUser.id, permissionIds: toGrant })
+    }
+    if (toRevoke.length > 0) {
+      await revokeUserPermission({ userId: directPermUser.id, permissionIds: toRevoke })
+    }
+
+    ElMessage.success('直接权限已更新')
+    directPermDialogVisible.value = false
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '权限更新失败')
+  } finally {
+    directPermSubmitLoading.value = false
+  }
+}
+
 onMounted(fetchUsers)
 </script>
 
@@ -690,5 +864,14 @@ onMounted(fetchUsers)
   display: flex;
   justify-content: center;
   margin-top: 12px;
+}
+
+/* ========== 直接授权弹窗 ========== */
+
+.perm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 </style>

@@ -541,4 +541,249 @@ public static class SeedData
 
         db.SaveChanges();
     }
+
+    /// <summary>
+    /// 确保权限管理相关权限存在
+    /// </summary>
+    public static void EnsurePermissionManagementPermissions(AppDbContext db)
+    {
+        var existingCodes = db.Permissions.Select(p => p.Code).ToHashSet();
+        var newPerms = new List<Permission>
+        {
+            new() { Name = "权限管理", Code = "permission:manage", Description = "管理权限项、直接对用户授权" },
+            new() { Name = "审计查看", Code = "audit:view", Description = "查看操作日志、权限变更日志和异常告警" },
+        };
+
+        var added = new List<Permission>();
+        foreach (var p in newPerms)
+        {
+            if (!existingCodes.Contains(p.Code))
+            {
+                db.Permissions.Add(p);
+                added.Add(p);
+            }
+        }
+
+        if (added.Count > 0)
+        {
+            db.SaveChanges();
+            var adminRole = db.Roles.FirstOrDefault(r => r.Name == "超级管理员");
+            if (adminRole != null)
+            {
+                foreach (var p in added)
+                {
+                    if (!db.RolePermissions.Any(rp => rp.RoleId == adminRole.Id && rp.PermissionId == p.Id))
+                        db.RolePermissions.Add(new RolePermission { RoleId = adminRole.Id, PermissionId = p.Id });
+                }
+                db.SaveChanges();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 确保权限管理和安全审计菜单存在
+    /// </summary>
+    public static void EnsurePermissionManagementMenus(AppDbContext db)
+    {
+        var existingPaths = db.Menus.Select(m => m.Path).ToHashSet();
+        var sysParent = db.Menus.FirstOrDefault(m => m.Name == "系统管理" && m.ParentId == null);
+        if (sysParent == null) return; // 系统管理父菜单不存在则跳过
+
+        // 权限管理（子菜单，挂在系统管理下）
+        if (!existingPaths.Contains("/dashboard/permissions"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "权限管理",
+                Path = "/dashboard/permissions",
+                Icon = "Key",
+                ParentId = sysParent.Id,
+                SortOrder = 8,
+                PermissionCode = "permission:manage",
+                MenuType = "menu",
+                Component = "PermissionManagement",
+            });
+        }
+
+        // 安全审计 父级菜单（挂在系统管理下）
+        var auditParent = db.Menus.FirstOrDefault(m => m.Name == "安全审计" && m.ParentId == sysParent.Id);
+        if (auditParent == null)
+        {
+            auditParent = new Menu
+            {
+                Name = "安全审计",
+                Path = null,
+                Icon = "Warning",
+                ParentId = sysParent.Id,
+                SortOrder = 9,
+                PermissionCode = "audit:view",
+                MenuType = "menu",
+                Component = null,
+            };
+            db.Menus.Add(auditParent);
+            db.SaveChanges();
+        }
+
+        // 操作日志（安全审计子节点）
+        if (!existingPaths.Contains("/dashboard/audit-log"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "操作日志",
+                Path = "/dashboard/audit-log",
+                Icon = "Document",
+                ParentId = auditParent.Id,
+                SortOrder = 1,
+                PermissionCode = "audit:view",
+                MenuType = "menu",
+                Component = "AuditLog",
+            });
+        }
+
+        // 权限变更日志（安全审计子节点）
+        if (!existingPaths.Contains("/dashboard/permission-change-log"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "权限变更日志",
+                Path = "/dashboard/permission-change-log",
+                Icon = "Lock",
+                ParentId = auditParent.Id,
+                SortOrder = 2,
+                PermissionCode = "audit:view",
+                MenuType = "menu",
+                Component = "PermissionChangeLog",
+            });
+        }
+
+        // 异常告警（安全审计子节点）
+        if (!existingPaths.Contains("/dashboard/alerts"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "异常告警",
+                Path = "/dashboard/alerts",
+                Icon = "Bell",
+                ParentId = auditParent.Id,
+                SortOrder = 3,
+                PermissionCode = "audit:view",
+                MenuType = "menu",
+                Component = "AlertManagement",
+            });
+        }
+
+        db.SaveChanges();
+    }
+
+    /// <summary>
+    /// 重置所有内置菜单到默认状态：恢复原始父级、排序、可见性，删除所有非内置菜单
+    /// </summary>
+    public static void ResetBuiltInMenus(AppDbContext db)
+    {
+        // 删除所有非内置菜单（会级联删除它们的子菜单，但内置子菜单已被保护）
+        var nonBuiltIn = db.Menus.Where(m => !m.IsBuiltIn).ToList();
+        db.Menus.RemoveRange(nonBuiltIn);
+        db.SaveChanges();
+
+        // 重置内置菜单到默认父级和排序
+        var defaults = new Dictionary<string, (int? ParentSortKey, int Sort, bool IsVisible)>
+        {
+            // 顶级菜单
+            ["/dashboard/home"] = (null, 0, true),
+            ["/dashboard/profile"] = (null, 1, true),
+            ["/dashboard/users"] = (null, 2, true),
+            ["/dashboard/roles"] = (null, 3, true),
+            ["/dashboard/materials"] = (null, 4, true),
+            ["/dashboard/inbound"] = (null, 5, true),
+            ["/dashboard/sso"] = (null, 7, true),
+            ["/dashboard/oauth-clients"] = (null, 8, true),
+            ["http://localhost:5174"] = (null, 100, true),
+        };
+
+        // 先获取所有内置菜单
+        var allBuiltIn = db.Menus.Where(m => m.IsBuiltIn).ToList();
+
+        // 系统管理（ParentId=null, SortOrder=99）
+        var sysParent = allBuiltIn.FirstOrDefault(m => m.Name == "系统管理" && m.Path == null);
+        if (sysParent != null)
+        {
+            sysParent.ParentId = null;
+            sysParent.SortOrder = 99;
+        }
+
+        // 工作流（ParentId=null, SortOrder=6）
+        var wfParent = allBuiltIn.FirstOrDefault(m => m.Name == "工作流" && m.Path == null);
+        if (wfParent != null)
+        {
+            wfParent.ParentId = null;
+            wfParent.SortOrder = 6;
+        }
+
+        // 安全审计（ParentId=sysParent.Id, SortOrder=9）
+        var auditParent = allBuiltIn.FirstOrDefault(m => m.Name == "安全审计" && m.Path == null);
+        if (auditParent != null && sysParent != null)
+        {
+            auditParent.ParentId = sysParent.Id;
+            auditParent.SortOrder = 9;
+        }
+
+        // 系统管理下的子菜单
+        var sysChildren = new Dictionary<string, int>
+        {
+            ["/dashboard/profile"] = 0,
+            ["/dashboard/home-config"] = 1,
+            ["/dashboard/attachments"] = 2,
+            ["/dashboard/database"] = 3,
+            ["http://localhost:5000/swagger"] = 4,
+            ["/dashboard/integration"] = 5,
+            ["/dashboard/schedule"] = 6,
+            ["/dashboard/menus"] = 7,
+            ["/dashboard/permissions"] = 8,
+        };
+        foreach (var m in allBuiltIn.Where(m => sysChildren.ContainsKey(m.Path ?? "")))
+        {
+            m.ParentId = sysParent?.Id;
+            m.SortOrder = sysChildren[m.Path!];
+        }
+
+        // 工作流下的子菜单
+        var wfChildren = new Dictionary<string, int>
+        {
+            ["/dashboard/workflow/definitions"] = 1,
+            ["/dashboard/workflow/my-applications"] = 2,
+            ["/dashboard/workflow/my-tasks"] = 3,
+        };
+        foreach (var m in allBuiltIn.Where(m => wfChildren.ContainsKey(m.Path ?? "")))
+        {
+            m.ParentId = wfParent?.Id;
+            m.SortOrder = wfChildren[m.Path!];
+        }
+
+        // 安全审计下的子菜单
+        var auditChildren = new Dictionary<string, int>
+        {
+            ["/dashboard/audit-log"] = 1,
+            ["/dashboard/permission-change-log"] = 2,
+            ["/dashboard/alerts"] = 3,
+        };
+        foreach (var m in allBuiltIn.Where(m => auditChildren.ContainsKey(m.Path ?? "")))
+        {
+            m.ParentId = auditParent?.Id;
+            m.SortOrder = auditChildren[m.Path!];
+        }
+
+        // 顶级路径菜单重置 ParentId=null
+        var topLevelPaths = new HashSet<string>
+        {
+            "/dashboard/home", "/dashboard/users", "/dashboard/roles",
+            "/dashboard/materials", "/dashboard/inbound", "/dashboard/sso",
+            "/dashboard/oauth-clients", "http://localhost:5174",
+        };
+        foreach (var m in allBuiltIn.Where(m => topLevelPaths.Contains(m.Path ?? "")))
+        {
+            m.ParentId = null;
+        }
+
+        db.SaveChanges();
+    }
 }

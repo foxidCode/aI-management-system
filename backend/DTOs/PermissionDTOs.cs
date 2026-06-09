@@ -62,6 +62,7 @@ public class MenuResponse
     public string? Component { get; set; }
     public string? OpenType { get; set; } = "self";
     public bool IsVisible { get; set; } = true;
+    public bool IsBuiltIn { get; set; } = false;
     public List<MenuResponse> Children { get; set; } = new();
 }
 

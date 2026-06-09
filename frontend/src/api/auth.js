@@ -421,5 +421,57 @@ export function deleteUnifiedAttachment(attachmentId) {
   return api.delete(`/attachment/${attachmentId}`)
 }
 
+// ========== 权限管理 API ==========
+
+export function getPermissionsPaginated(params = {}) {
+  return api.get('/permissionmanagement', { params })
+}
+
+export function createPermission(data) {
+  return api.post('/permissionmanagement', data)
+}
+
+export function updatePermission(id, data) {
+  return api.put(`/permissionmanagement/${id}`, data)
+}
+
+export function deletePermission(id) {
+  return api.delete(`/permissionmanagement/${id}`)
+}
+
+export function grantUserPermission(data) {
+  return api.put('/permissionmanagement/grant-user', data)
+}
+
+export function revokeUserPermission(data) {
+  return api.put('/permissionmanagement/revoke-user', data)
+}
+
+export function getUserPermissionSummary(userId) {
+  return api.get(`/permissionmanagement/user-summary/${userId}`)
+}
+
+export function getUserDirectPermissions(userId) {
+  return api.get(`/permissionmanagement/user-direct/${userId}`)
+}
+
+// ========== 审计日志 API ==========
+
+export function getOperationLogs(params = {}) {
+  return api.get('/auditlog/operations', { params })
+}
+
+export function getPermissionChangeLogs(params = {}) {
+  return api.get('/auditlog/permission-changes', { params })
+}
+
+export function getOperationStats(days = 7) {
+  return api.get('/auditlog/stats', { params: { days } })
+}
+
+export function getAnomalies() {
+  return api.get('/auditlog/anomalies')
+}
+
 // 导出 axios 实例供其他模块使用
 export { api }

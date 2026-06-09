@@ -76,7 +76,7 @@ public class MenuController : ControllerBase
     {
         if (!IsAdmin()) return Forbid();
         var ok = await _permService.DeleteMenuAsync(id);
-        if (!ok) return NotFound(new { success = false, message = "菜单不存在" });
+        if (!ok) return NotFound(new { success = false, message = "菜单不存在或为内置菜单不可删除" });
         return Ok(new { success = true, message = "已删除" });
     }
 
@@ -88,6 +88,22 @@ public class MenuController : ControllerBase
         {
             await _permService.BatchUpdateMenusAsync(req);
             return Ok(new { success = true, message = "排序已更新" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+    }
+
+    /// <summary>重置内置菜单到默认状态：删除自定义菜单，恢复内置菜单的原始层级和排序</summary>
+    [HttpPost("reset-built-in")]
+    public IActionResult ResetBuiltInMenus()
+    {
+        if (!IsAdmin()) return Forbid();
+        try
+        {
+            SeedData.ResetBuiltInMenus(_permService.GetDbContext());
+            return Ok(new { success = true, message = "内置菜单已还原到默认状态" });
         }
         catch (Exception ex)
         {

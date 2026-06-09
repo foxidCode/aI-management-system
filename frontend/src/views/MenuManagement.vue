@@ -37,6 +37,7 @@
               </el-icon>
               <span class="node-name">{{ data.name }}</span>
               <span class="node-path">{{ data.path || '(无路径)' }}</span>
+              <el-tag v-if="data.isBuiltIn" size="small" type="warning" class="node-tag">内置</el-tag>
               <el-tag v-if="!data.isVisible" size="small" type="info" class="node-tag">已隐藏</el-tag>
               <el-tag
                 v-if="data.openType && data.openType !== 'self'"
@@ -53,13 +54,26 @@
                 <el-button link size="small" type="success" @click="openCreate(data)">
                   <el-icon><Plus /></el-icon>
                 </el-button>
-                <el-popconfirm title="删除此菜单？有子菜单将一并删除" @confirm="doDelete(data)">
+                <el-popconfirm
+                  v-if="!data.isBuiltIn"
+                  title="删除此菜单？有子菜单将一并删除"
+                  @confirm="doDelete(data)"
+                >
                   <template #reference>
                     <el-button link size="small" type="danger">
                       <el-icon><Delete /></el-icon>
                     </el-button>
                   </template>
                 </el-popconfirm>
+                <el-tooltip
+                  v-else
+                  content="内置菜单不可删除，仅可调整顺序和层级"
+                  placement="top"
+                >
+                  <el-button link size="small" type="info" disabled>
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </el-tooltip>
               </div>
             </div>
           </template>
@@ -235,7 +249,7 @@ function flattenTree(tree) {
   const result = []
   function walk(nodes) {
     for (const n of nodes) {
-      result.push({ id: n.id, name: n.name, path: n.path, icon: n.icon, parentId: n.parentId, sortOrder: n.sortOrder, permissionCode: n.permissionCode, component: n.component, openType: n.openType, isVisible: n.isVisible })
+      result.push({ id: n.id, name: n.name, path: n.path, icon: n.icon, parentId: n.parentId, sortOrder: n.sortOrder, permissionCode: n.permissionCode, component: n.component, openType: n.openType, isVisible: n.isVisible, isBuiltIn: n.isBuiltIn })
       if (n.children?.length) walk(n.children)
     }
   }

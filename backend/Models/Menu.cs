@@ -45,4 +45,9 @@ public class Menu
     /// 是否在侧边栏显示
     /// </summary>
     public bool IsVisible { get; set; } = true;
+
+    /// <summary>
+    /// 是否为内置菜单（内置菜单不可删除，仅可调整顺序和层级）
+    /// </summary>
+    public bool IsBuiltIn { get; set; } = false;
 }

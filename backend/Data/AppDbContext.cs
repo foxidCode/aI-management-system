@@ -32,6 +32,9 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowInstance> WorkflowInstances => Set<WorkflowInstance>();
     public DbSet<WorkflowTask> WorkflowTasks => Set<WorkflowTask>();
     public DbSet<WorkflowHistory> WorkflowHistories => Set<WorkflowHistory>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+    public DbSet<OperationLog> OperationLogs => Set<OperationLog>();
+    public DbSet<PermissionChangeLog> PermissionChangeLogs => Set<PermissionChangeLog>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -245,6 +248,56 @@ public class AppDbContext : DbContext
             .HasForeignKey(h => h.ActorId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // UserPermission 复合主键
+        modelBuilder.Entity<UserPermission>()
+            .HasKey(up => new { up.UserId, up.PermissionId });
+
+        modelBuilder.Entity<UserPermission>()
+            .HasOne(up => up.User)
+            .WithMany()
+            .HasForeignKey(up => up.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserPermission>()
+            .HasOne(up => up.Permission)
+            .WithMany()
+            .HasForeignKey(up => up.PermissionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // OperationLog 索引
+        modelBuilder.Entity<OperationLog>()
+            .HasIndex(l => l.UserId);
+
+        modelBuilder.Entity<OperationLog>()
+            .HasIndex(l => l.Action);
+
+        modelBuilder.Entity<OperationLog>()
+            .HasIndex(l => l.CreatedAt);
+
+        modelBuilder.Entity<OperationLog>()
+            .HasOne(l => l.User)
+            .WithMany()
+            .HasForeignKey(l => l.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // PermissionChangeLog 索引
+        modelBuilder.Entity<PermissionChangeLog>()
+            .HasIndex(l => l.TargetUserId);
+
+        modelBuilder.Entity<PermissionChangeLog>()
+            .HasIndex(l => l.CreatedAt);
+
+        modelBuilder.Entity<PermissionChangeLog>()
+            .HasOne(l => l.TargetUser)
+            .WithMany()
+            .HasForeignKey(l => l.TargetUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PermissionChangeLog>()
+            .HasOne(l => l.Operator)
+            .WithMany()
+            .HasForeignKey(l => l.OperatorId)
+            .OnDelete(DeleteBehavior.Restrict);
 
 
     }

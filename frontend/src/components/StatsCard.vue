@@ -17,7 +17,7 @@
         <div class="user-tag" v-for="u in onlineUsers" :key="u.id">
           <el-icon :size="14"><UserFilled /></el-icon>
           <span class="user-name">{{ u.username }}</span>
-          <span class="user-email">{{ u.email }}</span>
+          <!-- <span class="user-email">{{ u.email }}</span> -->
         </div>
       </div>
 

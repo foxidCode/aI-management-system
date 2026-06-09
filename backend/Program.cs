@@ -122,6 +122,7 @@ builder.Services.AddSingleton<MinioService>();
 builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<AuditService>();
 
 // SignalR 实时通知
 builder.Services.AddSignalR();
@@ -193,6 +194,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
+    // 增量迁移（必须在种子数据之前执行，确保新列存在后再被 LINQ 查询引用）
+    try { db.Database.ExecuteSqlRaw(@"ALTER TABLE Menus ADD COLUMN IsBuiltIn INTEGER NOT NULL DEFAULT 0"); } catch { }
 
     // 种子数据
     if (!db.Roles.Any())
@@ -586,6 +590,80 @@ using (var scope = app.Services.CreateScope())
     // 工作流种子数据
     SeedData.EnsureWorkflowPermissions(db);
     SeedData.EnsureWorkflowMenus(db);
+
+    // ========== 权限管理 & 安全审计 建表 ==========
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS UserPermissions (
+            UserId INTEGER NOT NULL,
+            PermissionId INTEGER NOT NULL,
+            GrantedBy INTEGER NOT NULL,
+            GrantedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (UserId, PermissionId),
+            FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE,
+            FOREIGN KEY (PermissionId) REFERENCES Permissions(Id) ON DELETE CASCADE,
+            FOREIGN KEY (GrantedBy) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS OperationLogs (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            UserId INTEGER NOT NULL,
+            Username TEXT NOT NULL,
+            IpAddress TEXT,
+            Action TEXT NOT NULL,
+            TargetType TEXT,
+            TargetId TEXT,
+            TargetName TEXT,
+            Detail TEXT,
+            IsSensitive INTEGER NOT NULL DEFAULT 0,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS IX_OperationLogs_UserId ON OperationLogs(UserId);
+        CREATE INDEX IF NOT EXISTS IX_OperationLogs_Action ON OperationLogs(Action);
+        CREATE INDEX IF NOT EXISTS IX_OperationLogs_CreatedAt ON OperationLogs(CreatedAt);
+
+        CREATE TABLE IF NOT EXISTS PermissionChangeLogs (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            TargetUserId INTEGER,
+            TargetUsername TEXT,
+            ChangeType TEXT NOT NULL,
+            PermissionCode TEXT NOT NULL,
+            PermissionName TEXT,
+            OperatorId INTEGER NOT NULL,
+            OperatorName TEXT NOT NULL,
+            OperatorIp TEXT,
+            Detail TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (TargetUserId) REFERENCES Users(Id) ON DELETE RESTRICT,
+            FOREIGN KEY (OperatorId) REFERENCES Users(Id) ON DELETE RESTRICT
+        );
+        CREATE INDEX IF NOT EXISTS IX_Pcl_TargetUserId ON PermissionChangeLogs(TargetUserId);
+        CREATE INDEX IF NOT EXISTS IX_Pcl_CreatedAt ON PermissionChangeLogs(CreatedAt);
+    ");
+
+    // 权限管理 & 审计种子数据
+    SeedData.EnsurePermissionManagementPermissions(db);
+    SeedData.EnsurePermissionManagementMenus(db);
+
+    // 标记所有内置菜单为不可删除（在全部种子数据之后运行，确保覆盖新旧菜单）
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            UPDATE Menus SET IsBuiltIn = 1 WHERE
+                Path IN (
+                    '/dashboard/home','/dashboard/profile','/dashboard/users','/dashboard/roles',
+                    '/dashboard/materials','/dashboard/inbound','/dashboard/sso',
+                    '/dashboard/oauth-clients','/dashboard/home-config','/dashboard/attachments',
+                    '/dashboard/database','/dashboard/integration','/dashboard/schedule',
+                    '/dashboard/menus','http://localhost:5000/swagger','http://localhost:5174',
+                    '/dashboard/workflow/definitions','/dashboard/workflow/my-applications',
+                    '/dashboard/workflow/my-tasks','/dashboard/permissions',
+                    '/dashboard/audit-log','/dashboard/permission-change-log','/dashboard/alerts'
+                )
+                OR (Name IN ('工作流','系统管理','安全审计','帮助中心') AND ParentId IS NULL AND Path IS NULL)
+        ");
+    }
+    catch { }
 }
 
 // 开发环境异常页面
@@ -622,6 +700,51 @@ app.Use(async (context, next) =>
         }
     }
     await next();
+});
+
+// 审计日志中间件（记录敏感 API 操作）
+app.Use(async (context, next) =>
+{
+    await next();
+
+    // 仅记录写操作（POST/PUT/DELETE）到管理类 API
+    var method = context.Request.Method;
+    if (method != "POST" && method != "PUT" && method != "DELETE")
+        return;
+
+    var path = context.Request.Path.Value?.ToLower() ?? "";
+    var isSensitivePath = path.Contains("/api/role") ||
+                          path.Contains("/api/permission") ||
+                          path.Contains("/api/usermanagement") ||
+                          path.Contains("/api/auditlog") ||
+                          path.Contains("/api/menu");
+
+    if (!isSensitivePath) return;
+
+    // 需要认证用户
+    if (context.User?.Identity?.IsAuthenticated != true) return;
+
+    var nameId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(nameId, out var userId)) return;
+
+    var username = context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ??
+                   context.User.FindFirst("username")?.Value ?? "unknown";
+    var ip = context.Connection.RemoteIpAddress?.ToString();
+
+    // 提取操作类型和目标
+    var action = $"{method.ToLower()}:{path.TrimStart('/').Replace("/", ":")}";
+    var segments = path.TrimStart('/').Split('/');
+    var targetType = segments.Length > 2 ? segments[^2] : segments.Length > 1 ? segments[^1] : null;
+    var targetId = segments.Length > 2 ? segments[^1] : null;
+
+    try
+    {
+        var auditService = context.RequestServices.GetRequiredService<AuditService>();
+        await auditService.LogOperationAsync(
+            userId, username, ip, action, targetType, targetId, null, null,
+            isSensitive: true);
+    }
+    catch { /* 审计日志不应影响正常请求处理 */ }
 });
 
 // OIDC Discovery 端点

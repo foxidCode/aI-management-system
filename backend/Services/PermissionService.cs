@@ -14,6 +14,9 @@ public class PermissionService
         _db = db;
     }
 
+    /// <summary>暴露 DbContext 供种子数据重置等操作使用</summary>
+    public AppDbContext GetDbContext() => _db;
+
     // ========== 角色管理 ==========
 
     public async Task<RoleListResponse> GetAllRolesAsync(string? keyword, int page = 1, int pageSize = 0)
@@ -219,13 +222,21 @@ public class PermissionService
 
     public async Task<List<MenuResponse>> GetMenusForUserAsync(int userId)
     {
-        // 获取用户的所有权限编码
-        var permissionCodes = await _db.UserRoles
+        // 获取用户的所有权限编码（角色权限 + 直接权限）
+        var roleCodes = await _db.UserRoles
             .Where(ur => ur.UserId == userId)
             .SelectMany(ur => ur.Role.RolePermissions)
             .Select(rp => rp.Permission.Code)
             .Distinct()
             .ToListAsync();
+
+        var directCodes = await _db.UserPermissions
+            .Where(up => up.UserId == userId)
+            .Select(up => up.Permission.Code)
+            .Distinct()
+            .ToListAsync();
+
+        var permissionCodes = roleCodes.Union(directCodes).Distinct().ToList();
 
         // 数据库管理 + 菜单管理仅admin账号可见（通过 role:manage 判断是否为admin）
         if (permissionCodes.Contains("role:manage"))
@@ -274,6 +285,7 @@ public class PermissionService
                 Component = m.Component,
                 OpenType = m.OpenType,
                 IsVisible = m.IsVisible,
+                IsBuiltIn = m.IsBuiltIn,
                 Children = BuildMenuTree(menus, m.Id)
             })
             .ToList();
@@ -324,14 +336,54 @@ public class PermissionService
         var menu = await _db.Menus.FindAsync(id);
         if (menu == null) return false;
 
-        // 递归删除子菜单
-        var children = await _db.Menus.Where(m => m.ParentId == id).ToListAsync();
-        foreach (var child in children)
-            await DeleteMenuAsync(child.Id);
+        // 内置菜单不可删除
+        if (menu.IsBuiltIn) return false;
 
+        // 收集所有将被删除的后代 + 需要重挂载的内置后代
+        var toDelete = new List<Menu>();
+        var toReparent = new List<Menu>();
+        CollectDescendants(id, toDelete, toReparent);
+
+        // 内置后代（任意深度）：重新挂载到被删菜单的父级下保留
+        var newParentId = menu.ParentId;
+        foreach (var child in toReparent)
+        {
+            child.ParentId = newParentId;
+        }
+
+        // 删除所有非内置后代
+        foreach (var child in toDelete)
+        {
+            _db.Menus.Remove(child);
+        }
+
+        // 删除目标菜单本身
         _db.Menus.Remove(menu);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// 递归收集后代：非内置节点加入 toDelete 待删除，内置节点加入 toReparent 待重挂载。
+    /// 遇到内置节点时不会递归进入其子节点（其子树整体保留）。
+    /// </summary>
+    private void CollectDescendants(int parentId, List<Menu> toDelete, List<Menu> toReparent)
+    {
+        var children = _db.Menus.Where(m => m.ParentId == parentId).ToList();
+        foreach (var child in children)
+        {
+            if (child.IsBuiltIn)
+            {
+                // 内置节点：重挂载到祖先，不递归其子节点（子树保留）
+                toReparent.Add(child);
+            }
+            else
+            {
+                // 非内置节点：递归深入，然后加入删除列表
+                CollectDescendants(child.Id, toDelete, toReparent);
+                toDelete.Add(child);
+            }
+        }
     }
 
     public async Task BatchUpdateMenusAsync(BatchUpdateMenusRequest req)
@@ -366,6 +418,7 @@ public class PermissionService
             Component = menu.Component,
             OpenType = menu.OpenType,
             IsVisible = menu.IsVisible,
+            IsBuiltIn = menu.IsBuiltIn,
         };
     }
 
@@ -395,12 +448,22 @@ public class PermissionService
 
     public async Task<List<string>> GetUserPermissionCodesAsync(int userId)
     {
-        return await _db.UserRoles
+        // 角色权限
+        var roleCodes = await _db.UserRoles
             .Where(ur => ur.UserId == userId)
             .SelectMany(ur => ur.Role.RolePermissions)
             .Select(rp => rp.Permission.Code)
             .Distinct()
             .ToListAsync();
+
+        // 直接权限
+        var directCodes = await _db.UserPermissions
+            .Where(up => up.UserId == userId)
+            .Select(up => up.Permission.Code)
+            .Distinct()
+            .ToListAsync();
+
+        return roleCodes.Union(directCodes).Distinct().ToList();
     }
 
     public async Task<UserWithRolesResponse?> GetUserWithRolesAsync(int userId)
@@ -420,5 +483,216 @@ public class PermissionService
             RoleIds = user.UserRoles.Select(ur => ur.RoleId).ToList(),
             RoleNames = user.UserRoles.Select(ur => ur.Role.Name).ToList()
         };
+    }
+
+    // ========== 直接用户权限管理 ==========
+
+    /// <summary>获取用户的直接权限 ID 列表</summary>
+    public async Task<List<int>> GetUserDirectPermissionsAsync(int userId)
+    {
+        return await _db.UserPermissions
+            .Where(up => up.UserId == userId)
+            .Select(up => up.PermissionId)
+            .ToListAsync();
+    }
+
+    /// <summary>获取用户权限汇总（角色权限 + 直接权限）</summary>
+    public async Task<UserPermissionSummaryResponse?> GetUserPermissionSummaryAsync(int userId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return null;
+
+        var rolePermIds = await _db.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .SelectMany(ur => ur.Role.RolePermissions)
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToListAsync();
+
+        var directPermIds = await _db.UserPermissions
+            .Where(up => up.UserId == userId)
+            .Select(up => up.PermissionId)
+            .ToListAsync();
+
+        return new UserPermissionSummaryResponse
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            RolePermissionIds = rolePermIds,
+            DirectPermissionIds = directPermIds,
+            AllPermissionIds = rolePermIds.Union(directPermIds).Distinct().ToList()
+        };
+    }
+
+    /// <summary>批量授予用户直接权限</summary>
+    public async Task GrantUserPermissionsAsync(int userId, List<int> permissionIds, int grantedBy)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null)
+            throw new InvalidOperationException("用户不存在");
+
+        foreach (var permId in permissionIds)
+        {
+            if (!await _db.Permissions.AnyAsync(p => p.Id == permId))
+                continue;
+
+            // 已存在则跳过
+            var exists = await _db.UserPermissions.AnyAsync(up => up.UserId == userId && up.PermissionId == permId);
+            if (!exists)
+            {
+                _db.UserPermissions.Add(new UserPermission
+                {
+                    UserId = userId,
+                    PermissionId = permId,
+                    GrantedBy = grantedBy,
+                    GrantedAt = DateTime.Now
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>撤销用户直接权限</summary>
+    public async Task RevokeUserPermissionsAsync(int userId, List<int> permissionIds)
+    {
+        var toRemove = await _db.UserPermissions
+            .Where(up => up.UserId == userId && permissionIds.Contains(up.PermissionId))
+            .ToListAsync();
+
+        _db.UserPermissions.RemoveRange(toRemove);
+        await _db.SaveChangesAsync();
+    }
+
+    // ========== 权限项 CRUD ==========
+
+    /// <summary>分页获取权限列表（含角色数、直接用户数）</summary>
+    public async Task<(List<PermissionPaginatedResponse> List, int Total)> GetAllPermissionsPaginatedAsync(
+        string? keyword, int page = 1, int pageSize = 20)
+    {
+        var query = _db.Permissions.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var kw = keyword.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(kw)
+                || p.Code.ToLower().Contains(kw)
+                || (p.Description != null && p.Description.ToLower().Contains(kw)));
+        }
+
+        var total = await query.CountAsync();
+
+        var list = await query
+            .OrderBy(p => p.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new PermissionPaginatedResponse
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                Description = p.Description,
+                RoleCount = p.RolePermissions.Count,
+                UserCount = 0 // 下面计算
+            })
+            .ToListAsync();
+
+        // 补充直接用户数统计
+        var permIds = list.Select(p => p.Id).ToList();
+        var userCounts = await _db.UserPermissions
+            .Where(up => permIds.Contains(up.PermissionId))
+            .GroupBy(up => up.PermissionId)
+            .Select(g => new { PermissionId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var countMap = userCounts.ToDictionary(c => c.PermissionId, c => c.Count);
+        foreach (var item in list)
+        {
+            item.UserCount = countMap.TryGetValue(item.Id, out var cnt) ? cnt : 0;
+        }
+
+        return (list, total);
+    }
+
+    /// <summary>创建权限项</summary>
+    public async Task<PermissionResponse> CreatePermissionAsync(CreatePermissionRequest request)
+    {
+        if (await _db.Permissions.AnyAsync(p => p.Code == request.Code))
+            throw new InvalidOperationException("权限编码已存在");
+
+        var perm = new Permission
+        {
+            Name = request.Name,
+            Code = request.Code,
+            Description = request.Description
+        };
+
+        _db.Permissions.Add(perm);
+        await _db.SaveChangesAsync();
+
+        return new PermissionResponse
+        {
+            Id = perm.Id,
+            Name = perm.Name,
+            Code = perm.Code,
+            Description = perm.Description
+        };
+    }
+
+    /// <summary>更新权限项</summary>
+    public async Task<PermissionResponse?> UpdatePermissionAsync(int id, UpdatePermissionRequest request)
+    {
+        var perm = await _db.Permissions.FindAsync(id);
+        if (perm == null) return null;
+
+        if (await _db.Permissions.AnyAsync(p => p.Code == request.Code && p.Id != id))
+            throw new InvalidOperationException("权限编码已被其他权限使用");
+
+        perm.Name = request.Name;
+        perm.Code = request.Code;
+        perm.Description = request.Description;
+
+        await _db.SaveChangesAsync();
+
+        return new PermissionResponse
+        {
+            Id = perm.Id,
+            Name = perm.Name,
+            Code = perm.Code,
+            Description = perm.Description
+        };
+    }
+
+    /// <summary>删除权限项（同时清除关联的角色权限和直接用户权限）</summary>
+    public async Task<bool> DeletePermissionAsync(int id)
+    {
+        var perm = await _db.Permissions.FindAsync(id);
+        if (perm == null) return false;
+
+        // 删除角色关联
+        var rolePerms = _db.RolePermissions.Where(rp => rp.PermissionId == id);
+        _db.RolePermissions.RemoveRange(rolePerms);
+
+        // 删除直接用户权限关联
+        var userPerms = _db.UserPermissions.Where(up => up.PermissionId == id);
+        _db.UserPermissions.RemoveRange(userPerms);
+
+        _db.Permissions.Remove(perm);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>获取所有权限编码列表（用于菜单权限选择）</summary>
+    public async Task<List<PermissionResponse>> GetAllPermissionCodesAsync()
+    {
+        return await _db.Permissions
+            .Select(p => new PermissionResponse
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                Description = p.Description
+            })
+            .ToListAsync();
     }
 }
