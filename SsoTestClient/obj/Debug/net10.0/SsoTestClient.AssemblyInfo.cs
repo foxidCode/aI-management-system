@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SsoTestClient")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+986e6839a3792f097f3a98e594beef5e2643a4b6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b4e60d99848deac98957975c7672088bcd5fc0df")]
 [assembly: System.Reflection.AssemblyProductAttribute("SsoTestClient")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SsoTestClient")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

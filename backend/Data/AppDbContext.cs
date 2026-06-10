@@ -35,6 +35,11 @@ public class AppDbContext : DbContext
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<OperationLog> OperationLogs => Set<OperationLog>();
     public DbSet<PermissionChangeLog> PermissionChangeLogs => Set<PermissionChangeLog>();
+    public DbSet<AiModelConfig> AiModelConfigs => Set<AiModelConfig>();
+    public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<DailySummary> DailySummaries => Set<DailySummary>();
+    public DbSet<KnowledgeEntry> KnowledgeEntries => Set<KnowledgeEntry>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -298,6 +303,25 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(l => l.OperatorId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // AiModelConfig
+
+        // ChatSession
+        modelBuilder.Entity<ChatSession>()
+            .HasIndex(s => s.UserId);
+
+        // ChatMessage
+        modelBuilder.Entity<ChatMessage>()
+            .HasIndex(m => m.SessionId);
+
+        // DailySummary
+        modelBuilder.Entity<DailySummary>()
+            .HasIndex(s => s.SummaryDate)
+            .IsUnique();
+
+        // KnowledgeEntry
+        modelBuilder.Entity<KnowledgeEntry>()
+            .HasIndex(k => k.Category);
 
 
     }

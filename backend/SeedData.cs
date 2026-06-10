@@ -786,4 +786,260 @@ public static class SeedData
 
         db.SaveChanges();
     }
+
+    // ========== AI 对话 ==========
+
+    /// <summary>确保 AI 相关权限存在</summary>
+    public static void EnsureAiPermissions(AppDbContext db)
+    {
+        var existingCodes = db.Permissions.Select(p => p.Code).ToHashSet();
+        var newPerms = new List<Permission>
+        {
+            new() { Name = "AI对话", Code = "ai:chat", Description = "使用 AI 助手对话功能" },
+            new() { Name = "AI配置", Code = "ai:config", Description = "管理 AI 模型配置" },
+            new() { Name = "AI总结管理", Code = "ai:summary:manage", Description = "审批和管理每日 AI 总结" },
+            new() { Name = "AI会话管理", Code = "ai:chat:manage", Description = "管理所有用户的 AI 会话" },
+        };
+
+        var added = new List<Permission>();
+        foreach (var p in newPerms)
+        {
+            if (!existingCodes.Contains(p.Code))
+            {
+                db.Permissions.Add(p);
+                added.Add(p);
+            }
+        }
+
+        if (added.Count > 0)
+        {
+            db.SaveChanges();
+            var adminRole = db.Roles.FirstOrDefault(r => r.Name == "超级管理员");
+            if (adminRole != null)
+            {
+                foreach (var p in added)
+                {
+                    if (!db.RolePermissions.Any(rp => rp.RoleId == adminRole.Id && rp.PermissionId == p.Id))
+                        db.RolePermissions.Add(new RolePermission { RoleId = adminRole.Id, PermissionId = p.Id });
+                }
+                db.SaveChanges();
+
+                // 普通用户也分配 AI 对话权限
+                var normalRole = db.Roles.FirstOrDefault(r => r.Name == "普通用户");
+                if (normalRole != null)
+                {
+                    var chatPerm = added.FirstOrDefault(p => p.Code == "ai:chat");
+                    if (chatPerm != null && !db.RolePermissions.Any(rp => rp.RoleId == normalRole.Id && rp.PermissionId == chatPerm.Id))
+                    {
+                        db.RolePermissions.Add(new RolePermission { RoleId = normalRole.Id, PermissionId = chatPerm.Id });
+                        db.SaveChanges();
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>确保 AI 菜单存在</summary>
+    public static void EnsureAiMenus(AppDbContext db)
+    {
+        var existingPaths = db.Menus.Select(m => m.Path).ToHashSet();
+
+        // 系统管理菜单下的子菜单
+        var sysParent = db.Menus.FirstOrDefault(m => m.Name == "系统管理" && m.ParentId == null);
+        if (sysParent == null) return;
+
+        // AI 配置（子菜单，挂在系统管理下）
+        if (!existingPaths.Contains("/dashboard/ai-config"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "AI配置",
+                Path = "/dashboard/ai-config",
+                Icon = "Cpu",
+                ParentId = sysParent.Id,
+                SortOrder = 10,
+                PermissionCode = "ai:config",
+                MenuType = "menu",
+                Component = "AiConfig",
+            });
+        }
+
+        // AI 总结管理（子菜单，挂在系统管理下）
+        if (!existingPaths.Contains("/dashboard/ai-summaries"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "AI总结管理",
+                Path = "/dashboard/ai-summaries",
+                Icon = "DataAnalysis",
+                ParentId = sysParent.Id,
+                SortOrder = 11,
+                PermissionCode = "ai:summary:manage",
+                MenuType = "menu",
+                Component = "AiSummaryManagement",
+            });
+        }
+
+        // AI 知识库（子菜单，挂在系统管理下）
+        if (!existingPaths.Contains("/dashboard/ai-knowledge"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "AI知识库",
+                Path = "/dashboard/ai-knowledge",
+                Icon = "Collection",
+                ParentId = sysParent.Id,
+                SortOrder = 12,
+                PermissionCode = "ai:config",
+                MenuType = "menu",
+                Component = "AiKnowledgeBase",
+            });
+        }
+
+        // AI 会话管理（子菜单，挂在系统管理下）
+        if (!existingPaths.Contains("/dashboard/ai-sessions"))
+        {
+            db.Menus.Add(new Menu
+            {
+                Name = "AI会话管理",
+                Path = "/dashboard/ai-sessions",
+                Icon = "ChatLineSquare",
+                ParentId = sysParent.Id,
+                SortOrder = 13,
+                PermissionCode = "ai:chat:manage",
+                MenuType = "menu",
+                Component = "AiSessionManagement",
+                IsBuiltIn = true,
+            });
+        }
+
+        db.SaveChanges();
+    }
+
+    /// <summary>确保系统初始知识库内容存在</summary>
+    public static void EnsureAiKnowledgeBase(AppDbContext db)
+    {
+        if (db.KnowledgeEntries.Any()) return;
+
+        var entries = new List<KnowledgeEntry>
+        {
+            new()
+            {
+                Title = "系统简介",
+                Content = "本系统是基于 ASP.NET Core + Vue 3 + Element Plus 的企业级全栈管理系统。涵盖了 RBAC 权限管理、入库单管理、低代码集成平台、OAuth 2.0/OIDC 单点登录、计划任务调度、工作流引擎等功能。\n\n系统采用前后端分离架构：\n- 前端：Vue 3 (Composition API <script setup>) + Element Plus + Vite\n- 后端：.NET 10 Web API + Entity Framework Core (SQLite)\n- 基础设施：Redis (Token缓存/在线状态)、MinIO (附件存储)、Nginx 反向代理",
+                Category = "getting-started",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "如何开始使用系统",
+                Content = "## 快速开始\n\n1. **登录系统**：使用内置管理员账号 `admin` / `password` 登录\n2. **掌握导航**：左侧菜单栏分为主页、用户列表、角色管理、材料字典、入库单、工作流、系统管理、帮助中心等模块\n3. **顶部搜索**：顶栏左侧支持快速搜索菜单，输入关键词即可定位功能页面\n4. **通知系统**：顶栏铃铛图标显示实时通知（如工作流审批提醒）\n\n## 内置账号\n- 管理员：`admin` / `password`（拥有全部权限）\n- 可通过「用户列表」创建新用户并分配角色",
+                Category = "getting-started",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "RBAC 权限管理说明",
+                Content = "## 权限模型\n\n系统采用 RBAC（基于角色的访问控制）：\n\n```\nUser → UserRole → Role → RolePermission → Permission\n```\n\n每层关系：\n- **User（用户）**：系统登录账户\n- **Role（角色）**：权限集合，如「超级管理员」「普通用户」\n- **Permission（权限）**：最小权限单元，格式为 `资源:操作`\n  - 例：`user:view`（查看用户）、`inbound:manage`（管理入库单）\n\n## 管理方式\n- 超级管理员可在「用户列表」分配角色\n- 在「角色管理」为角色增删权限\n- 在「权限管理」创建新权限、直接给用户授权\n- 菜单根据用户的权限码自动过滤显示",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "用户和角色管理",
+                Content = "## 用户管理\n\n位置：左侧菜单 → 用户列表\n\n功能：\n- 查看所有用户（表格支持搜索、分页）\n- 创建新用户（用户名、邮箱、密码）\n- 编辑用户信息、重置密码\n- 冻结/解冻用户账号\n- 踢出在线用户\n- 为用户分配角色\n\n## 角色管理\n\n位置：左侧菜单 → 角色管理\n\n功能：\n- 创建/编辑/删除角色\n- 为角色勾选权限（权限按资源分组）\n- 系统内置 3 个角色：超级管理员、普通用户、只读用户",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "入库单管理",
+                Content = "## 入库单管理\n\n位置：左侧菜单 → 入库单\n\n功能：\n- 创建入库单（单据编码、仓库、供应商、合同号）\n- 添加明细（材料编码、名称、规格、数量、单价等）\n- 自动计算税额和成本（含税金额 = 数量 × 含税单价）\n- 附件上传（支持 MinIO 对象存储）\n- 导出 Excel\n- 批量删除\n\n## 材料字典\n\n位置：左侧菜单 → 材料字典\n\n存储基础材料数据（编码、名称、规格、型号、单位），入库单明细可引用材料编码。系统预置 500 条材料数据。",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "工作流系统使用指南",
+                Content = "## 工作流系统\n\n位置：左侧菜单 → 工作流\n\n包含 4 个子模块：\n\n### 1. 流程定义\n- 创建和编辑工作流模板（可视化设计器）\n- 设计审批节点（会签、或签、主管审批）\n- 配置表单字段\n- 发布/停用流程\n\n### 2. 我的申请\n- 发起工作流申请\n- 查看自己提交的所有申请及状态\n- 撤回未审批的申请\n\n### 3. 待办审批\n- 查看需要自己审批的任务\n- 通过/拒绝/转交\n- 填写审批意见\n\n### 4. 流程详情\n- 查看流程实例的审批进度（时间线）\n- 查看每个节点的审批结果",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "OAuth 2.0 / OIDC 单点登录配置",
+                Content = "## OAuth 2.0 / OIDC\n\n系统内置完整的 OAuth 2.0 授权服务器和 OpenID Connect 提供者。\n\n### OAuth 客户端管理\n位置：系统管理 → OAuth客户端\n\n功能：\n- 注册第三方客户端（ClientId、ClientSecret、回调地址）\n- 配置授权范围（Scopes）\n- PKCE S256 安全增强\n- JWT (HMAC-SHA256) 访问令牌 + RS256 ID 令牌\n\n### SSO 单点登录\n位置：系统管理 → SSO链接管理\n\n- 生成一次性或有效期 SSO 链接\n- 支持授权码模式（扫码登录场景）\n\n### 发现端点\n- `/.well-known/openid-configuration` — OIDC 发现文档\n- `/.well-known/jwks.json` — 公钥 JWKS",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "集成平台和计划任务",
+                Content = "## 集成平台\n\n位置：系统管理 → 集成平台\n\n低代码数据集成工具：\n- 配置接口连接（HTTP API、数据库）\n- 创建数据同步任务（源→目标，支持字段映射）\n- 自定义代码处理器（Before/After Hook）\n- 查看执行日志\n\n## 计划任务\n\n位置：系统管理 → 计划任务\n\n- 基于 Cron 表达式的定时任务\n- 手动触发执行\n- 发现系统内置的 ScheduledTaskHandler\n- 支持一次性任务（RunOnceAt）\n- 查看执行状态和耗时",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "常见问题",
+                Content = "## FAQ\n\n**Q: 忘记密码怎么办？**\nA: 登录页点击「忘记密码」，输入注册邮箱获取重置验证码。\n\n**Q: 菜单没有显示某个功能？**\nA: 菜单根据用户权限动态过滤。联系管理员确认你的角色是否拥有对应权限。\n\n**Q: 如何导出数据？**\nA: 入库单列表页有「导出」按钮，可导出为 Excel 格式。\n\n**Q: Token 过期怎么办？**\nA: JWT Token 默认有有效期。Token 过期后会自动跳转登录页，重新登录即可。\n\n**Q: 如何重置数据库？**\nA: 删除 `backend/auth.db` 文件，重启后端服务，系统会自动重建表结构和种子数据。",
+                Category = "faq",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+            new()
+            {
+                Title = "菜单管理说明",
+                Content = "## 菜单管理\n\n位置：系统管理 → 菜单管理\n\n功能：\n- 创建多级菜单结构（支持无限层级）\n- 配置菜单图标（使用 Element Plus Icons 的 PascalCase 名称）\n- 设置菜单路径和关联权限码\n- 配置打开方式：当前页(self)、新标签(blank)、内嵌iframe(iframe)\n- 支持外部链接菜单\n- 内置菜单受保护，不可删除（仅可调整顺序）\n- 拖拽排序支持",
+                Category = "feature-guide",
+                Source = "system",
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            },
+        };
+
+        db.KnowledgeEntries.AddRange(entries);
+        db.SaveChanges();
+    }
+
+    /// <summary>确保默认 AI 模型配置（占位，管理员需自行配置真实参数）</summary>
+    public static void EnsureAiDefaultConfig(AppDbContext db)
+    {
+        if (db.AiModelConfigs.Any()) return;
+
+        var config = new AiModelConfig
+        {
+            Name = "默认配置（请修改）",
+            Provider = "openai",
+            ApiEndpoint = "https://api.deepseek.com",
+            ApiKey = "your-api-key-here",
+            ModelName = "deepseek-chat",
+            MaxTokens = 131072,
+            Temperature = 0.7,
+            IsActive = false,
+            SystemPrompt = "你是本管理系统的 AI 助手，专门帮助用户熟悉和使用本系统的功能。\n\n## 核心规则\n1. **知识库优先**：你的回答必须基于系统知识库提供的文档内容\n2. **禁止编造**：如果知识库中没有相关信息，告知用户你暂时无法提供准确答案\n3. **具体操作**：回答时给出精确的菜单位置和操作步骤\n4. **中文回答**：保持专业、清晰、友好的中文风格",
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        db.AiModelConfigs.Add(config);
+        db.SaveChanges();
+    }
 }

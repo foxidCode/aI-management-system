@@ -123,6 +123,10 @@ builder.Services.AddScoped<WorkflowDefinitionService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AuditService>();
+builder.Services.AddSingleton<ApiKeyEncryptionService>();
+builder.Services.AddScoped<AiChatService>();
+builder.Services.AddScoped<AiSummaryService>();
+builder.Services.AddScoped<AiKnowledgeService>();
 
 // SignalR 实时通知
 builder.Services.AddSignalR();
@@ -641,9 +645,83 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS IX_Pcl_CreatedAt ON PermissionChangeLogs(CreatedAt);
     ");
 
+    // ========== AI 对话功能 建表 ==========
+    db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS AiModelConfigs (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL,
+            Provider TEXT NOT NULL DEFAULT 'openai',
+            ApiEndpoint TEXT NOT NULL DEFAULT '',
+            ApiKey TEXT DEFAULT '',
+            ModelName TEXT NOT NULL DEFAULT '',
+            MaxTokens INTEGER NOT NULL DEFAULT 131072,
+            Temperature REAL NOT NULL DEFAULT 0.7,
+            IsActive INTEGER NOT NULL DEFAULT 0,
+            SystemPrompt TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ChatSessions (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            UserId INTEGER NOT NULL,
+            Title TEXT DEFAULT '新对话',
+            ModelConfigId INTEGER,
+            MessageCount INTEGER NOT NULL DEFAULT 0,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (UserId) REFERENCES Users(Id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS IX_ChatSessions_UserId ON ChatSessions(UserId);
+
+        CREATE TABLE IF NOT EXISTS ChatMessages (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            SessionId INTEGER NOT NULL,
+            Role TEXT NOT NULL DEFAULT 'user',
+            Content TEXT NOT NULL DEFAULT '',
+            TokenCount INTEGER NOT NULL DEFAULT 0,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (SessionId) REFERENCES ChatSessions(Id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS IX_ChatMessages_SessionId ON ChatMessages(SessionId);
+
+        CREATE TABLE IF NOT EXISTS DailySummaries (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            SummaryDate TEXT NOT NULL,
+            Content TEXT NOT NULL DEFAULT '',
+            SessionCount INTEGER NOT NULL DEFAULT 0,
+            MessageCount INTEGER NOT NULL DEFAULT 0,
+            Status TEXT NOT NULL DEFAULT 'pending',
+            ReviewedBy INTEGER,
+            ReviewComment TEXT,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            ReviewedAt TEXT,
+            FOREIGN KEY (ReviewedBy) REFERENCES Users(Id) ON DELETE SET NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS IX_DailySummaries_SummaryDate ON DailySummaries(SummaryDate);
+
+        CREATE TABLE IF NOT EXISTS KnowledgeEntries (
+            Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            Title TEXT NOT NULL DEFAULT '',
+            Content TEXT NOT NULL DEFAULT '',
+            Category TEXT DEFAULT 'general',
+            Source TEXT DEFAULT 'system',
+            IsActive INTEGER NOT NULL DEFAULT 1,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS IX_KnowledgeEntries_Category ON KnowledgeEntries(Category);
+    ");
+
     // 权限管理 & 审计种子数据
     SeedData.EnsurePermissionManagementPermissions(db);
     SeedData.EnsurePermissionManagementMenus(db);
+
+    // AI 对话种子数据
+    SeedData.EnsureAiPermissions(db);
+    SeedData.EnsureAiMenus(db);
+    SeedData.EnsureAiKnowledgeBase(db);
+    SeedData.EnsureAiDefaultConfig(db);
 
     // 标记所有内置菜单为不可删除（在全部种子数据之后运行，确保覆盖新旧菜单）
     try
@@ -658,7 +736,8 @@ using (var scope = app.Services.CreateScope())
                     '/dashboard/menus','http://localhost:5000/swagger','http://localhost:5174',
                     '/dashboard/workflow/definitions','/dashboard/workflow/my-applications',
                     '/dashboard/workflow/my-tasks','/dashboard/permissions',
-                    '/dashboard/audit-log','/dashboard/permission-change-log','/dashboard/alerts'
+                    '/dashboard/audit-log','/dashboard/permission-change-log','/dashboard/alerts',
+                    '/dashboard/ai-config','/dashboard/ai-summaries','/dashboard/ai-knowledge'
                 )
                 OR (Name IN ('工作流','系统管理','安全审计','帮助中心') AND ParentId IS NULL AND Path IS NULL)
         ");

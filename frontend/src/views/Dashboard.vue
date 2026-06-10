@@ -68,6 +68,12 @@
           </el-popover>
         </div>
         <div class="topbar-right">
+          <!-- AI 助手按钮 -->
+          <el-tooltip content="AI 助手 - 帮你了解系统" placement="bottom">
+            <el-button link size="small" @click="showAiChat = true">
+              <el-icon :size="20" color="#409EFF"><ChatDotRound /></el-icon>
+            </el-button>
+          </el-tooltip>
           <el-tooltip content="查看系统帮助文档" placement="bottom">
             <el-button link size="small" @click="openHelp">
               <el-icon :size="18"><Notebook /></el-icon>
@@ -122,21 +128,26 @@
       </el-main>
     </el-container>
   </el-container>
+
+  <!-- AI 助手面板 -->
+  <AiChatPanel v-model:visible="showAiChat" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Search, Bell, Close } from '@element-plus/icons-vue'
+import { Search, Bell, Close, ChatDotRound } from '@element-plus/icons-vue'
 import { getUserMenus } from '../api/auth'
 import MenuItem from './MenuItem.vue'
+import AiChatPanel from './AiChatPanel.vue'
 import { useSignalR } from '../composables/useSignalR.js'
 
 const router = useRouter()
 const route = useRoute()
 
 const activeMenu = computed(() => route.path)
+const showAiChat = ref(false)
 
 // SignalR 通知
 const { notifications, unreadCount, connect: connectSignalR, disconnect: disconnectSignalR, markAllRead, clearAll } = useSignalR()
